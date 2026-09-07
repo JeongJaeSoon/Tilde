@@ -30,7 +30,17 @@ through Xcode Organizer; automate updates later if it earns its keep).
    | `ASC_KEY_ID` | the API key's Key ID |
    | `ASC_ISSUER_ID` | the Issuer ID (Keys page header) |
 
-4. **Test the pipeline without publishing**: Actions → Release →
+4. **Enable Homebrew Tap updates** (one time)
+   - Create a fine-grained GitHub token restricted to the
+     `heyeuca/homebrew-tap` repository.
+   - Give it only `Contents: Read and write` repository permission.
+   - Add it to this repository as the Actions secret
+     `HOMEBREW_TAP_TOKEN`. Do not reuse a broad personal token or the local
+     `gh` login token.
+   - On tagged releases, the workflow reads the tag and the final DMG hash,
+     updates `homebrew-tap/Casks/tilde.rb`, and pushes the change.
+
+5. **Test the pipeline without publishing**: Actions → Release →
    Run workflow. This builds, signs, notarizes, and staples, then uploads
    the DMG as an artifact instead of creating a release.
 

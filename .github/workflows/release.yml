@@ -13,6 +13,7 @@ name: Release
 #   ASC_KEY_P8           base64 of an App Store Connect API key (.p8)
 #   ASC_KEY_ID           the API key's Key ID
 #   ASC_ISSUER_ID        the API key's Issuer ID
+#   HOMEBREW_TAP_TOKEN   fine-grained token with write access to homebrew-tap
 
 on:
   push:
@@ -149,6 +150,57 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" \
               --title "Tilde $GITHUB_REF_NAME" --generate-notes
+          fi
+
+      - name: Check Homebrew tap token
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::error::Missing repository secret: HOMEBREW_TAP_TOKEN — see docs/RELEASING.md"
+            exit 1
+          fi
+
+      - name: Checkout Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/checkout@v4
+        with:
+          repository: heyeuca/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+          ref: main
+
+      - name: Update Homebrew cask
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          DMG: ${{ steps.name.outputs.dmg }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          SHA256="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          CASK="homebrew-tap/Casks/tilde.rb"
+          ruby - "$CASK" "$VERSION" "$SHA256" <<'RUBY'
+          path, version, sha256 = ARGV
+          text = File.read(path)
+          version_pattern = /^\s*version "[^"]+"/
+          sha256_pattern = /^\s*sha256 "[0-9a-f]{64}"/
+          abort "Cask format changed: version stanza not found" unless text.match?(version_pattern)
+          abort "Cask format changed: sha256 stanza not found" unless text.match?(sha256_pattern)
+
+          updated = text.sub(version_pattern) { %(  version "#{version}") }
+          updated = updated.sub(sha256_pattern) { %(  sha256 "#{sha256}") }
+          File.write(path, updated) unless updated == text
+          RUBY
+
+          if git -C homebrew-tap diff --quiet -- Casks/tilde.rb; then
+            echo "Homebrew cask is already up to date"
+          else
+            git -C homebrew-tap config user.name "github-actions[bot]"
+            git -C homebrew-tap config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C homebrew-tap add Casks/tilde.rb
+            git -C homebrew-tap commit -m "Update Tilde to v${VERSION}"
+            git -C homebrew-tap push origin HEAD:main
           fi
 
       - name: Upload DMG artifact (non-tag runs)
