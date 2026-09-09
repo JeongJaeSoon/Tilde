@@ -208,6 +208,26 @@ do {
     expect(s.attribute(EditorTheme.codeBlockMarker, at: outside, effectiveRange: nil) == nil, "empty line outside fence has no code-block marker")
 }
 
+// MARK: - Caret on the final (virtual) line
+
+do {
+    // A document ending in a newline (or an empty one) lays out an extra
+    // line fragment for the last caret position. It holds no character, so
+    // AppKit takes its height from the caret's typing attributes — which
+    // must therefore carry the empty-line paragraph style, or that one caret
+    // ends up lineSpacing-taller than every other empty line.
+    for mono in [false, true] {
+        let typing = EditorTheme.typingAttributes(monospaced: mono, size: EditorTheme.defaultFontSize)
+        let style = typing[.paragraphStyle] as? NSParagraphStyle
+        let font = EditorTheme.bodyFont(monospaced: mono, size: EditorTheme.defaultFontSize)
+        let empty = EditorTheme.emptyLineParagraphStyle(for: font)
+        expect(style?.lineSpacing == 0, "caret typing style has no lineSpacing (mono=\(mono))")
+        expect((style?.paragraphSpacingBefore ?? 0) > 0, "caret typing style carries the empty-line rhythm (mono=\(mono))")
+        expect(style?.paragraphSpacingBefore == empty.paragraphSpacingBefore, "final-line caret matches other empty lines (mono=\(mono))")
+        expect((typing[.font] as? NSFont)?.pointSize == font.pointSize, "caret typing font is body-sized (mono=\(mono))")
+    }
+}
+
 // MARK: - Incremental restyle via delegate
 
 do {

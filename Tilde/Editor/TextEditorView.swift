@@ -278,7 +278,7 @@ struct TextEditorView: NSViewRepresentable {
             activeHighlighter = highlighter
             attachedDocument?.textStorage.delegate = highlighter
 
-            textView.typingAttributes = EditorTheme.bodyAttributes(
+            textView.typingAttributes = EditorTheme.typingAttributes(
                 monospaced: monospaced,
                 size: settings.fontSize
             )
