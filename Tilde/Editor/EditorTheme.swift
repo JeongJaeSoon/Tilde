@@ -74,6 +74,25 @@ nonisolated enum EditorTheme {
         ]
     }
 
+    /// Attributes for the insertion caret. Identical to `bodyAttributes`
+    /// except the paragraph style is the empty-line one: when the document
+    /// ends in a newline (or is empty), AppKit lays out an extra line
+    /// fragment for the final caret position and — there being no character
+    /// there — takes its height from `typingAttributes`, not from any
+    /// paragraph style on the text. The regular style's `lineSpacing` sits
+    /// inside that line box and makes the last caret taller than every other
+    /// empty line's; the empty-line style keeps it text-height. A character
+    /// the user actually types is restyled to the body style on the same
+    /// edit, so this never leaks lineSpacing loss into real text.
+    static func typingAttributes(monospaced: Bool, size: CGFloat) -> [NSAttributedString.Key: Any] {
+        let font = bodyFont(monospaced: monospaced, size: size)
+        return [
+            .font: font,
+            .paragraphStyle: emptyLineParagraphStyle(for: font),
+            .foregroundColor: NSColor.textColor,
+        ]
+    }
+
     // MARK: - Markdown styling tokens
 
     /// Syntax markers (`#`, `**`, `` ` ``…) stay visible but recede.
