@@ -94,6 +94,8 @@ Tilde processes every document locally.
 - No AI features
 - No analytics in the initial release
 
+Full policy: [PRIVACY.md](PRIVACY.md)
+
 ## Building
 
 Tilde is built with Swift, SwiftUI, and AppKit, using SwiftUI as the primary technology and wrapping `NSTextView` where a mature text engine is needed.
