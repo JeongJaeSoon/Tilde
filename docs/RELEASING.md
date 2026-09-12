@@ -54,6 +54,12 @@ git push origin v1.0.0
 That's it. The Release workflow builds a signed, notarized, stapled DMG and
 attaches it to a GitHub release with generated notes.
 
+The DMG is attached twice: as `Tilde-vX.Y.Z.dmg` (referenced by the Homebrew
+cask) and as a fixed-name `Tilde.dmg`, so the landing page can link to
+`https://github.com/heyeuca/Tilde/releases/latest/download/Tilde.dmg` and
+always get the newest release. Note that `latest/download/Tilde.dmg` 404s for
+releases cut before this was added (v1.0.1 and earlier).
+
 ### What the pipeline does
 
 build (hardened runtime + sandbox from project settings) → codesign with
