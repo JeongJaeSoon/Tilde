@@ -136,6 +136,10 @@ jobs:
             NAME="Tilde-dev-$(git rev-parse --short HEAD).dmg"
           fi
           mv Tilde.dmg "$NAME"
+          # Second copy under a fixed name so the landing page can link to
+          # .../releases/latest/download/Tilde.dmg without tracking versions.
+          # The Homebrew cask keeps using the versioned file.
+          cp "$NAME" Tilde.dmg
           echo "dmg=$NAME" >> "$GITHUB_OUTPUT"
 
       - name: Check Homebrew tap token
@@ -159,10 +163,10 @@ jobs:
           fi
           NOTES="docs/releases/${GITHUB_REF_NAME}-draft.md"
           if [[ -f "$NOTES" ]]; then
-            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" \
+            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg \
               --title "Tilde $GITHUB_REF_NAME" --notes-file "$NOTES"
           else
-            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" \
+            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg \
               --title "Tilde $GITHUB_REF_NAME" --generate-notes
           fi
 
