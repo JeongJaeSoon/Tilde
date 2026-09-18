@@ -64,34 +64,70 @@ final class EditorTextView: NSTextView {
         }
     }
 
-    /// Text height the caret is drawn at, set by the coordinator from the
-    /// current body font. `nil` leaves AppKit's rect untouched.
+    /// Text height of the body font and the line rhythm (text height plus
+    /// `lineSpacing`), set by the coordinator. `nil` leaves the caret alone.
     var caretHeight: CGFloat?
+    var lineRhythm: CGFloat?
 
-    /// On the final (virtual) line after a blank line, TextKit 2 swallows the
-    /// typing style's `lineSpacing` into the line box, and the caret comes
-    /// out 1.5× the text height (#1). The caret is an `NSTextInsertionIndicator`
-    /// subview; AppKit sizes its frame when the insertion point updates and
-    /// again in `layout()`, so clamp after both. The view is flipped, so
-    /// trimming the height keeps the top edge where AppKit put it.
+    /// The caret on the final (virtual) line — the one after a trailing
+    /// newline — is laid out by TextKit 2 as an extra line inside the last
+    /// paragraph's fragment, and its geometry is unreliable (#1, #7): the
+    /// typing style's `lineSpacing` is swallowed into its box (1.5× caret),
+    /// and the gap above it depends on how the line was reached and on
+    /// whether the paragraph before is blank or first in the document
+    /// (−8 pt, 0, or +8 pt off the rhythm). Text typed there lands on the
+    /// rhythm, so the caret is placed where that text will appear: one line
+    /// rhythm below the top of the last real line, text-height tall.
+    ///
+    /// The caret is an `NSTextInsertionIndicator` subview; AppKit sets its
+    /// frame when the insertion point updates and again in `layout()`, so
+    /// adjust after both. The view is flipped: origin is the top edge.
     override func updateInsertionPointStateAndRestartTimer(_ restartFlag: Bool) {
         super.updateInsertionPointStateAndRestartTimer(restartFlag)
-        clampInsertionIndicator()
+        adjustInsertionIndicator()
     }
 
     override func layout() {
         super.layout()
-        clampInsertionIndicator()
+        adjustInsertionIndicator()
     }
 
-    private func clampInsertionIndicator() {
+    private func adjustInsertionIndicator() {
         guard let caretHeight else { return }
-        for case let indicator as NSTextInsertionIndicator in subviews
-        where indicator.frame.height > caretHeight {
+        let shift = extraLineCaretShift()
+        for case let indicator as NSTextInsertionIndicator in subviews {
             var frame = indicator.frame
-            frame.size.height = caretHeight
-            indicator.frame = frame
+            frame.origin.y += shift
+            frame.size.height = min(frame.height, caretHeight)
+            if frame != indicator.frame { indicator.frame = frame }
         }
+    }
+
+    /// How far the extra line's caret must move to sit one rhythm below the
+    /// last real line; 0 when the caret is anywhere else.
+    private func extraLineCaretShift() -> CGFloat {
+        guard
+            let lineRhythm,
+            let layoutManager = textLayoutManager,
+            let storage = textStorage
+        else { return 0 }
+        let selection = selectedRange()
+        let length = storage.length
+        guard
+            selection.length == 0, selection.location == length, length > 0,
+            storage.mutableString.character(at: length - 1) == 0x0A
+        else { return 0 }
+
+        // The last fragment holds the last real line followed by the extra line.
+        var last: NSTextLayoutFragment?
+        layoutManager.enumerateTextLayoutFragments(
+            from: layoutManager.documentRange.endLocation, options: [.ensuresLayout, .reverse]
+        ) { fragment in last = fragment; return false }
+        guard let last, last.textLineFragments.count >= 2 else { return 0 }
+        let lines = last.textLineFragments
+        let realTop = lines[lines.count - 2].typographicBounds.minY
+        let extraTop = lines[lines.count - 1].typographicBounds.minY
+        return realTop + lineRhythm - extraTop
     }
 
     override func drawBackground(in rect: NSRect) {

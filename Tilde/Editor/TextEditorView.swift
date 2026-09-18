@@ -285,10 +285,11 @@ struct TextEditorView: NSViewRepresentable {
             textView.defaultParagraphStyle = EditorTheme.paragraphStyle(
                 for: EditorTheme.bodyFont(monospaced: monospaced, size: settings.fontSize)
             )
-            (textView as? EditorTextView)?.caretHeight = EditorTheme.caretHeight(
-                monospaced: monospaced,
-                size: settings.fontSize
-            )
+            if let editorView = textView as? EditorTextView {
+                let font = EditorTheme.bodyFont(monospaced: monospaced, size: settings.fontSize)
+                editorView.caretHeight = EditorTheme.caretHeight(monospaced: monospaced, size: settings.fontSize)
+                editorView.lineRhythm = editorView.caretHeight! + EditorTheme.lineSpacing(for: font)
+            }
 
             configureWordWrap(settings.wordWrap, textView: textView, scrollView: scrollView)
             configureLineNumbers(settings.showLineNumbers, textView: textView, scrollView: scrollView)
