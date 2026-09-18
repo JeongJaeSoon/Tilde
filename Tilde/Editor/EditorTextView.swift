@@ -64,6 +64,36 @@ final class EditorTextView: NSTextView {
         }
     }
 
+    /// Text height the caret is drawn at, set by the coordinator from the
+    /// current body font. `nil` leaves AppKit's rect untouched.
+    var caretHeight: CGFloat?
+
+    /// On the final (virtual) line after a blank line, TextKit 2 swallows the
+    /// typing style's `lineSpacing` into the line box, and the caret comes
+    /// out 1.5× the text height (#1). The caret is an `NSTextInsertionIndicator`
+    /// subview; AppKit sizes its frame when the insertion point updates and
+    /// again in `layout()`, so clamp after both. The view is flipped, so
+    /// trimming the height keeps the top edge where AppKit put it.
+    override func updateInsertionPointStateAndRestartTimer(_ restartFlag: Bool) {
+        super.updateInsertionPointStateAndRestartTimer(restartFlag)
+        clampInsertionIndicator()
+    }
+
+    override func layout() {
+        super.layout()
+        clampInsertionIndicator()
+    }
+
+    private func clampInsertionIndicator() {
+        guard let caretHeight else { return }
+        for case let indicator as NSTextInsertionIndicator in subviews
+        where indicator.frame.height > caretHeight {
+            var frame = indicator.frame
+            frame.size.height = caretHeight
+            indicator.frame = frame
+        }
+    }
+
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
 

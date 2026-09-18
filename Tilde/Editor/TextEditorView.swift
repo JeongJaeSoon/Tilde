@@ -285,6 +285,10 @@ struct TextEditorView: NSViewRepresentable {
             textView.defaultParagraphStyle = EditorTheme.paragraphStyle(
                 for: EditorTheme.bodyFont(monospaced: monospaced, size: settings.fontSize)
             )
+            (textView as? EditorTextView)?.caretHeight = EditorTheme.caretHeight(
+                monospaced: monospaced,
+                size: settings.fontSize
+            )
 
             configureWordWrap(settings.wordWrap, textView: textView, scrollView: scrollView)
             configureLineNumbers(settings.showLineNumbers, textView: textView, scrollView: scrollView)
@@ -367,6 +371,32 @@ struct TextEditorView: NSViewRepresentable {
 
         func undoManager(for view: NSTextView) -> UndoManager? {
             undoManager
+        }
+
+        /// Re-lays out the tail of the document after every edit.
+        ///
+        /// When an edit leaves the document ending in a newline, TextKit 2
+        /// appends the final caret's extra line to the last paragraph's
+        /// fragment incrementally — and on that path drops the spacing above
+        /// it, so deleting a line's text back to empty parks the caret 8 pt
+        /// higher than the same empty line reached with Return (#7). A fresh
+        /// layout of that one paragraph computes it correctly; the range is
+        /// a single paragraph, so this is cheap.
+        func textDidChange(_ notification: Notification) {
+            guard
+                let textView = notification.object as? NSTextView,
+                let layoutManager = textView.textLayoutManager,
+                let contentManager = layoutManager.textContentManager,
+                let storage = textView.textStorage
+            else { return }
+            let length = storage.length
+            guard length > 0, storage.mutableString.character(at: length - 1) == 0x0A else { return }
+            let tail = storage.mutableString.paragraphRange(for: NSRange(location: length - 1, length: 0))
+            guard
+                let start = contentManager.location(contentManager.documentRange.location, offsetBy: tail.location),
+                let range = NSTextRange(location: start, end: contentManager.documentRange.endLocation)
+            else { return }
+            layoutManager.invalidateLayout(for: range)
         }
     }
 }
