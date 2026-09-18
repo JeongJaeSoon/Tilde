@@ -74,23 +74,28 @@ nonisolated enum EditorTheme {
         ]
     }
 
-    /// Attributes for the insertion caret. Identical to `bodyAttributes`
-    /// except the paragraph style is the empty-line one: when the document
-    /// ends in a newline (or is empty), AppKit lays out an extra line
-    /// fragment for the final caret position and — there being no character
-    /// there — takes its height from `typingAttributes`, not from any
-    /// paragraph style on the text. The regular style's `lineSpacing` sits
-    /// inside that line box and makes the last caret taller than every other
-    /// empty line's; the empty-line style keeps it text-height. A character
-    /// the user actually types is restyled to the body style on the same
-    /// edit, so this never leaks lineSpacing loss into real text.
+    /// Attributes for the insertion caret — the body attributes.
+    ///
+    /// When the document ends in a newline (or is empty), TextKit 2 lays out
+    /// an extra line for the final caret position inside the last
+    /// paragraph's layout fragment. It holds no character, so its geometry
+    /// comes from `typingAttributes`. Measured live (14 pt body, 25 pt
+    /// rhythm; #1, #7): with the body style the line lands on the rhythm
+    /// both after a text paragraph and after a blank line, whereas the
+    /// empty-line style (`paragraphSpacingBefore`) sat 8 pt too low after
+    /// text and 8 pt too high after a blank line. The body `lineSpacing` is
+    /// also swallowed into that line's box, which is what made the last
+    /// caret 1.5× tall (#1); `EditorTextView` clamps the drawn caret to
+    /// `caretHeight` instead of bending the paragraph style, so the position
+    /// stays right.
     static func typingAttributes(monospaced: Bool, size: CGFloat) -> [NSAttributedString.Key: Any] {
+        bodyAttributes(monospaced: monospaced, size: size)
+    }
+
+    /// Text height of the body font: the caret height every line should show.
+    static func caretHeight(monospaced: Bool, size: CGFloat) -> CGFloat {
         let font = bodyFont(monospaced: monospaced, size: size)
-        return [
-            .font: font,
-            .paragraphStyle: emptyLineParagraphStyle(for: font),
-            .foregroundColor: NSColor.textColor,
-        ]
+        return (font.ascender - font.descender + font.leading).rounded(.up)
     }
 
     // MARK: - Markdown styling tokens

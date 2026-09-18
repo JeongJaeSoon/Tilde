@@ -212,19 +212,24 @@ do {
 
 do {
     // A document ending in a newline (or an empty one) lays out an extra
-    // line fragment for the last caret position. It holds no character, so
-    // AppKit takes its height from the caret's typing attributes — which
-    // must therefore carry the empty-line paragraph style, or that one caret
-    // ends up lineSpacing-taller than every other empty line.
+    // line for the last caret position inside the last paragraph's fragment.
+    // It holds no character, so its geometry comes from the caret's typing
+    // attributes. Measured live (#1, #7): the BODY paragraph style puts that
+    // line on the 25 pt rhythm both after text and after a blank line; the
+    // empty-line style landed it 8 pt off in opposite directions. The body
+    // lineSpacing that then inflates the caret box is trimmed by the text
+    // view (EditorTextView.caretHeight), not by the paragraph style.
     for mono in [false, true] {
         let typing = EditorTheme.typingAttributes(monospaced: mono, size: EditorTheme.defaultFontSize)
-        let style = typing[.paragraphStyle] as? NSParagraphStyle
+        let body = EditorTheme.bodyAttributes(monospaced: mono, size: EditorTheme.defaultFontSize)
         let font = EditorTheme.bodyFont(monospaced: mono, size: EditorTheme.defaultFontSize)
-        let empty = EditorTheme.emptyLineParagraphStyle(for: font)
-        expect(style?.lineSpacing == 0, "caret typing style has no lineSpacing (mono=\(mono))")
-        expect((style?.paragraphSpacingBefore ?? 0) > 0, "caret typing style carries the empty-line rhythm (mono=\(mono))")
-        expect(style?.paragraphSpacingBefore == empty.paragraphSpacingBefore, "final-line caret matches other empty lines (mono=\(mono))")
+        expect((typing[.paragraphStyle] as? NSParagraphStyle) == (body[.paragraphStyle] as? NSParagraphStyle),
+               "caret typing style is the body paragraph style (mono=\(mono))")
         expect((typing[.font] as? NSFont)?.pointSize == font.pointSize, "caret typing font is body-sized (mono=\(mono))")
+        let caret = EditorTheme.caretHeight(monospaced: mono, size: EditorTheme.defaultFontSize)
+        let textHeight = font.ascender - font.descender + font.leading
+        expect(caret >= textHeight && caret < textHeight + 1, "caret height is the text height, not the line box (mono=\(mono))")
+        expect(caret < textHeight + EditorTheme.lineSpacing(for: font), "caret height excludes lineSpacing (mono=\(mono))")
     }
 }
 
