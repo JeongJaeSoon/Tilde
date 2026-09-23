@@ -140,7 +140,6 @@ struct ReaderView: NSViewRepresentable {
         func render(document: TextDocument, fontSize: CGFloat, baseURL: URL?, restoringFraction: CGFloat? = nil) {
             guard let textView else { return }
             let text = document.textStorage.string
-            let restoringFraction = restoringFraction.map { MarkdownRenderer.renderedFraction($0, in: text) }
             renderedText = text
             renderedSize = fontSize
             renderedBaseURL = baseURL
@@ -150,7 +149,7 @@ struct ReaderView: NSViewRepresentable {
 
             if text.utf8.count <= Self.syncThreshold {
                 textView.textStorage?.setAttributedString(renderer.render(text))
-                if let restoringFraction {
+                if let restoringFraction = restoringFraction.map({ MarkdownRenderer.renderedFraction($0, in: text) }) {
                     // Geometry (window, frame) is only trustworthy one
                     // runloop after makeNSView; the content is already in
                     // place, so the deferred scroll doesn't flash.
@@ -165,6 +164,9 @@ struct ReaderView: NSViewRepresentable {
             // documents and cannot be sped up, so render off the main thread.
             DispatchQueue.global(qos: .userInitiated).async {
                 let rendered = renderer.render(text)
+                // Mapped here, not on entry: finding the hidden frontmatter
+                // can scan the whole document when line 1 is an unclosed `---`.
+                let restoringFraction = restoringFraction.map { MarkdownRenderer.renderedFraction($0, in: text) }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.generation == token, let textView = self.textView else { return }
                     textView.textStorage?.setAttributedString(rendered)

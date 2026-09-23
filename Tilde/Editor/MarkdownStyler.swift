@@ -137,6 +137,8 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
     /// An edit after the block cannot change it. With no block, only line 1
     /// can open one, and when line 1 already opens a block that never
     /// closed, the only new closing fence can be in the edited paragraphs.
+    /// Edits on line 1 or inside the block rescan from the top — to EOF when
+    /// line 1 is an unclosed `---` rule (about 10 ms per 4 MB).
     private func updatedFrontmatter(string: NSString, window: NSRange?, delta: Int) -> NSRange? {
         if let cache = frontmatterCache, let window, window.location > 0, cache.length + delta == string.length {
             if let block = cache.block {
