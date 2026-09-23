@@ -32,6 +32,10 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
     private var fenceCache: [NSRange]?
     private var cachedLength = 0
 
+    /// How many cached fence lines lie past the frontmatter at the last
+    /// restyle; a change means code regions after the edit re-paired.
+    private var activeFenceCount: Int?
+
     /// The leading frontmatter block and the text length it was found in;
     /// nil until the first scan.
     private var frontmatterCache: (block: NSRange?, length: Int)?
@@ -54,6 +58,7 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
     func restyleAll(_ textStorage: NSTextStorage) {
         fenceCache = nil
         frontmatterCache = nil
+        activeFenceCount = nil
         restyle(in: textStorage, editedRange: nil, delta: 0)
     }
 
@@ -64,6 +69,7 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
             fenceCache = []
             cachedLength = 0
             frontmatterCache = (nil, 0)
+            activeFenceCount = 0
             return
         }
 
@@ -80,12 +86,17 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
         let previousFrontmatter = frontmatterCache?.block
         let frontmatter = stylesMarkdown ? updatedFrontmatter(string: string, window: window, delta: delta) : nil
 
-        let previousFenceCount = fenceCache?.count
+        let frontmatterEnd = frontmatter.map(NSMaxRange) ?? 0
+
+        let previousFenceCount = activeFenceCount
         let fences = stylesMarkdown ? updatedFenceLines(string: string, window: window, delta: delta) : []
-        let regions = Self.fenceRegions(fences: fences, totalLength: string.length)
+        // A ``` line inside frontmatter is metadata, not a code fence.
+        let activeFences = fences.drop { $0.location < frontmatterEnd }
+        activeFenceCount = activeFences.count
+        let regions = Self.fenceRegions(fences: Array(activeFences), totalLength: string.length)
 
         var styleRange: NSRange
-        if let window, !stylesMarkdown || previousFenceCount == fences.count {
+        if let window, !stylesMarkdown || previousFenceCount == activeFences.count {
             styleRange = window
             // Edits inside a fence restyle the whole fenced region.
             for region in regions where NSIntersectionRange(region, styleRange).length > 0 {
@@ -98,10 +109,9 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
             let oldEnd = previousFrontmatter.map { block in
                 NSMaxRange(block) <= window.location ? NSMaxRange(block) : max(NSMaxRange(block) + delta, NSMaxRange(window))
             } ?? 0
-            let newEnd = frontmatter.map(NSMaxRange) ?? 0
-            if oldEnd != newEnd {
-                let low = min(oldEnd, newEnd)
-                styleRange = NSUnionRange(styleRange, NSRange(location: low, length: max(oldEnd, newEnd) - low))
+            if oldEnd != frontmatterEnd {
+                let low = min(oldEnd, frontmatterEnd)
+                styleRange = NSUnionRange(styleRange, NSRange(location: low, length: max(oldEnd, frontmatterEnd) - low))
             }
         } else {
             // Fence opened/closed (or first pass): everything after the
@@ -116,7 +126,7 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
         // there is not allowed.
         let batch = editedRange == nil
         if batch { textStorage.beginEditing() }
-        applyStyles(in: styleRange, string: string, regions: regions, frontmatterEnd: frontmatter.map(NSMaxRange) ?? 0, to: textStorage)
+        applyStyles(in: styleRange, string: string, regions: regions, frontmatterEnd: frontmatterEnd, to: textStorage)
         if batch { textStorage.endEditing() }
     }
 

@@ -195,6 +195,23 @@ do {
 }
 
 do {
+    let text = "---\nnote:\n```\n---\nbody\n"
+    let s = styled(text)
+    expect(!isMono(font(s, at: (text as NSString).range(of: "body").location)), "frontmatter: ``` inside the block opens no code fence")
+}
+
+do {
+    // Closing the block around an open fence line re-pairs every fence below.
+    let storage = NSTextStorage(string: "---\n```\nbody\n")
+    let styler = MarkdownStyler()
+    storage.delegate = styler
+    styler.restyleAll(storage)
+    expect(isMono(font(storage, at: 8)), "frontmatter: unclosed block leaves ``` a fence")
+    storage.replaceCharacters(in: NSRange(location: 8, length: 0), with: "---\n")
+    expect(!isMono(font(storage, at: 12)), "frontmatter: closing the block restyles the fence's code below")
+}
+
+do {
     let s = styled("---\ntitle: x\n\nbody\n")
     expect(color(s, at: 0) == EditorTheme.markerColor, "frontmatter: unclosed `---` is still a horizontal rule")
     expect(color(s, at: 4) == NSColor.textColor, "frontmatter: unclosed block leaves lines as body")
