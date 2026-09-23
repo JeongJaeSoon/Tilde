@@ -236,6 +236,45 @@ do {
     expect(!s.string.contains("---"), "break markers removed")
 }
 
+// MARK: - Frontmatter
+
+func hasAttachment(_ s: NSAttributedString) -> Bool {
+    var found = false
+    s.enumerateAttribute(.attachment, in: NSRange(location: 0, length: s.length)) { value, _, _ in
+        if value != nil { found = true }
+    }
+    return found
+}
+
+do {
+    let s = render("---\ntitle: Hello\ntags: [a_b]\n---\n# Heading\n\nbody\n")
+    expect(!s.string.contains("title"), "frontmatter: metadata hidden")
+    expect(!hasAttachment(s), "frontmatter: fences are not thematic breaks")
+    expect(s.string.hasPrefix("Heading"), "frontmatter: document starts at the real content")
+    expect(paragraphStyle(s, at: 0)?.paragraphSpacingBefore == 0, "frontmatter: first real block gets no leading space")
+}
+
+do {
+    let s = render("---\ntitle: Hello\n...\nbody\n")
+    expect(!s.string.contains("title") && s.string.hasPrefix("body"), "frontmatter: `...` closes the block")
+}
+
+do {
+    let s = render("---\n---\nbody\n")
+    expect(s.string.hasPrefix("body") && !hasAttachment(s), "frontmatter: empty block hidden")
+}
+
+do {
+    let s = render("---\ntitle: Hello\n\nbody\n")
+    expect(hasAttachment(s), "frontmatter: no closing fence keeps the thematic break")
+    expect(s.string.contains("title: Hello"), "frontmatter: no closing fence keeps the text")
+}
+
+do {
+    let s = render("intro\n\n---\n\ntitle: Hello\n\n---\n\nbody\n")
+    expect(s.string.contains("title: Hello") && hasAttachment(s), "frontmatter: `---` not on line 1 is a thematic break")
+}
+
 // MARK: - Tables
 
 func textBlocks(_ s: NSAttributedString, at i: Int) -> [NSTextBlock] {

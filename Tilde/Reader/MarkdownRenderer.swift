@@ -53,7 +53,17 @@ nonisolated struct MarkdownRenderer {
 
     // MARK: - Entry point
 
-    func render(_ markdown: String) -> NSAttributedString {
+    func render(_ source: String) -> NSAttributedString {
+        // Frontmatter is hidden, not rendered: the parser would show its
+        // fences as rules and its keys as loose paragraphs. The metadata
+        // stays editable in the editor. A metadata card above the content
+        // is the upgrade if readers turn out to want a title or date shown.
+        var markdown = source
+        let nsSource = source as NSString
+        if let frontmatter = MarkdownFrontmatter.range(in: nsSource) {
+            markdown = nsSource.substring(from: NSMaxRange(frontmatter))
+        }
+
         let options = AttributedString.MarkdownParsingOptions(
             allowsExtendedAttributes: true,
             interpretedSyntax: .full,

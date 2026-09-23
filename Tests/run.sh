@@ -43,6 +43,7 @@ build_and_run LineIndexTests \
 build_and_run StylerTests \
     Tilde/Editor/EditorTheme.swift \
     Tilde/Editor/CodeSyntaxStyler.swift \
+    Tilde/Editor/MarkdownFrontmatter.swift \
     Tilde/Editor/MarkdownStyler.swift \
     Tests/StylerTests/main.swift || status=1
 
@@ -61,6 +62,7 @@ build_and_run LocalizationTests \
 
 build_and_run RendererTests \
     Tilde/Editor/EditorTheme.swift \
+    Tilde/Editor/MarkdownFrontmatter.swift \
     Tilde/Reader/CodeHighlighter.swift \
     Tilde/Reader/MarkdownRenderer.swift \
     Tests/RendererTests/main.swift || status=1

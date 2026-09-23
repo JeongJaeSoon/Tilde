@@ -162,6 +162,64 @@ do {
     expect(color(s, at: at) == EditorTheme.markerColor, "--- horizontal rule dimmed")
 }
 
+// MARK: - Frontmatter
+
+do {
+    func detect(_ text: String) -> NSRange? { MarkdownFrontmatter.range(in: text as NSString) }
+    expect(detect("---\na: b\n---\nbody\n") == NSRange(location: 0, length: 13), "frontmatter: block through closing newline")
+    expect(detect("---\na: b\n...\n") == NSRange(location: 0, length: 13), "frontmatter: `...` terminator")
+    expect(detect("---\n---\n") == NSRange(location: 0, length: 8), "frontmatter: empty block")
+    expect(detect("---\na: b\n---") == NSRange(location: 0, length: 12), "frontmatter: closing fence at EOF")
+    expect(detect("--- \t\na: b\n---  \n") != nil, "frontmatter: trailing whitespace on fences")
+    expect(detect("---\r\na: b\r\n---\r\n") != nil, "frontmatter: CRLF fences")
+    expect(detect("---\na: b\n") == nil, "frontmatter: no closing fence")
+    expect(detect("---") == nil && detect("---\n") == nil, "frontmatter: lone opening fence")
+    expect(detect("\n---\na: b\n---\n") == nil, "frontmatter: `---` not on line 1")
+    expect(detect("----\na: b\n---\n") == nil, "frontmatter: four dashes do not open")
+    expect(detect("---\na: b\n----\n") == nil, "frontmatter: four dashes do not close")
+    expect(detect("---\na: b\n --- \n") == nil, "frontmatter: indented fence does not close")
+    expect(detect("...\na: b\n...\n") == nil, "frontmatter: `...` does not open")
+}
+
+do {
+    let text = "---\ntitle: a_b_c\ntags:\n  - x\n---\n\nsome *it* here\n"
+    let s = styled(text)
+    let ns = text as NSString
+    let closeAt = ns.range(of: "---\n\n").location
+    expect(color(s, at: 0) == EditorTheme.markerColor, "frontmatter: opening fence dimmed")
+    expect(color(s, at: closeAt) == EditorTheme.markerColor, "frontmatter: closing fence dimmed")
+    expect(color(s, at: ns.range(of: "title").location) == EditorTheme.quoteColor, "frontmatter: metadata quiet")
+    expect(!isItalic(font(s, at: ns.range(of: "b_c").location)), "frontmatter: no inline rules inside")
+    expect(font(s, at: ns.range(of: "- x").location) != EditorTheme.listMarkerFont(size: EditorTheme.defaultFontSize), "frontmatter: `- x` is not a list")
+    expect(isItalic(font(s, at: ns.range(of: "*it*").location + 1)), "frontmatter: Markdown resumes after the block")
+}
+
+do {
+    let s = styled("---\ntitle: x\n\nbody\n")
+    expect(color(s, at: 0) == EditorTheme.markerColor, "frontmatter: unclosed `---` is still a horizontal rule")
+    expect(color(s, at: 4) == NSColor.textColor, "frontmatter: unclosed block leaves lines as body")
+}
+
+do {
+    let text = "intro\n---\nkey: v\n---\n"
+    let s = styled(text)
+    expect(color(s, at: (text as NSString).range(of: "key").location) == NSColor.textColor, "frontmatter: only recognized on line 1")
+}
+
+do {
+    // Typing the closing fence turns the lines above into metadata;
+    // deleting it turns them back.
+    let storage = NSTextStorage(string: "---\ntitle: x\nbody\n")
+    let styler = MarkdownStyler()
+    storage.delegate = styler
+    styler.restyleAll(storage)
+    expect(color(storage, at: 4) == NSColor.textColor, "frontmatter: body before closing fence exists")
+    storage.replaceCharacters(in: NSRange(location: 13, length: 0), with: "---\n")
+    expect(color(storage, at: 4) == EditorTheme.quoteColor, "frontmatter: typing closing fence restyles the block")
+    storage.replaceCharacters(in: NSRange(location: 13, length: 4), with: "")
+    expect(color(storage, at: 4) == NSColor.textColor, "frontmatter: deleting closing fence restyles the block")
+}
+
 // MARK: - Fenced code blocks
 
 do {
@@ -258,7 +316,9 @@ do {
 
 // MARK: - Fuzz: incremental fence cache must match a full scan
 
-do {
+/// Applies 400 random edits through the delegate and returns how many
+/// sampled positions differ from a fresh full restyle.
+func fuzzMismatches(start: String, pieces: [String]) -> Int {
     // Deterministic PRNG so failures are reproducible.
     var seed: UInt64 = 0x5eed
     func rand(_ bound: Int) -> Int {
@@ -266,8 +326,7 @@ do {
         return Int((seed >> 33) % UInt64(bound))
     }
 
-    let pieces = ["hello ", "**b** ", "`c` ", "# h\n", "```\n", "code\n", "text\n", "> q\n", "- i\n", "\n", "~~s~~ ", "[l](u) "]
-    let storage = NSTextStorage(string: "start\n```\nfence\n```\nend\n")
+    let storage = NSTextStorage(string: start)
     let styler = MarkdownStyler()
     storage.delegate = styler
     styler.restyleAll(storage)
@@ -278,8 +337,9 @@ do {
         let len = ns.length
         let kind = rand(3)
         if kind == 0 || len < 10 {
-            // insert a random piece at a random location
-            let at = rand(len + 1)
+            // insert a random piece; often at the start, where line 1
+            // decides whether a frontmatter block exists at all
+            let at = rand(4) == 0 ? 0 : rand(len + 1)
             storage.replaceCharacters(in: NSRange(location: at, length: 0), with: pieces[rand(pieces.count)])
         } else if kind == 1 {
             // delete a random small range (can swallow whole fence lines)
@@ -299,9 +359,8 @@ do {
         let freshStorage = NSTextStorage(string: storage.string)
         let freshStyler = MarkdownStyler()
         freshStyler.restyleAll(freshStorage)
-        // Compare rendered attributes at a few sampled positions.
-        for _ in 0..<8 where current.length > 0 {
-            let at = rand(current.length)
+        // Compare rendered attributes at every position.
+        for at in 0..<current.length {
             let a = storage.attributes(at: at, effectiveRange: nil)
             let b = freshStorage.attributes(at: at, effectiveRange: nil)
             let aFont = a[.font] as? NSFont
@@ -317,7 +376,19 @@ do {
             }
         }
     }
+    return mismatches
+}
+
+do {
+    let pieces = ["hello ", "**b** ", "`c` ", "# h\n", "```\n", "code\n", "text\n", "> q\n", "- i\n", "\n", "~~s~~ ", "[l](u) "]
+    let mismatches = fuzzMismatches(start: "start\n```\nfence\n```\nend\n", pieces: pieces)
     expect(mismatches == 0, "fuzz: 400 random edits — incremental styling matches full restyle (\(mismatches) mismatches)")
+}
+
+do {
+    let pieces = ["---\n", "---", "...\n", "-", "\n", "key: v\n", "a_b_c ", "# h\n", "text\n", "```\n"]
+    let mismatches = fuzzMismatches(start: "---\ntitle: x\n---\nbody\n---\nmore\n", pieces: pieces)
+    expect(mismatches == 0, "fuzz: 400 frontmatter edits — incremental styling matches full restyle (\(mismatches) mismatches)")
 }
 
 print("\n\(passed) passed, \(failed) failed")
