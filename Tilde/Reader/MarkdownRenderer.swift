@@ -45,6 +45,19 @@ nonisolated struct MarkdownRenderer {
         return String(slug)
     }
 
+    /// The editor reports its reading position as a fraction of the whole
+    /// source, but the rendered text starts after the hidden frontmatter:
+    /// shift the fraction past it, so a position inside the metadata opens
+    /// Reader at the top.
+    static func renderedFraction(_ sourceFraction: CGFloat, in source: String) -> CGFloat {
+        let nsSource = source as NSString
+        guard let frontmatter = MarkdownFrontmatter.range(in: nsSource) else { return sourceFraction }
+        guard nsSource.length > frontmatter.length else { return 0 }
+        let hidden = CGFloat(frontmatter.length)
+        let total = CGFloat(nsSource.length)
+        return max(0, (sourceFraction * total - hidden) / (total - hidden))
+    }
+
     /// Indentation added per list-nesting level and for blockquotes.
     private let indentUnit: CGFloat = 22
 

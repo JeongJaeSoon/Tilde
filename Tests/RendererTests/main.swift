@@ -271,6 +271,16 @@ do {
 }
 
 do {
+    // 20-character block + 20-character body: the editor's fraction of the
+    // whole source maps onto the body alone.
+    let source = "---\ntitle: 1234\n---\n" + String(repeating: "b", count: 19) + "\n"
+    expect(MarkdownRenderer.renderedFraction(0.75, in: source) == 0.5, "frontmatter: reading fraction shifts past the hidden block")
+    expect(MarkdownRenderer.renderedFraction(0.25, in: source) == 0, "frontmatter: a position inside the metadata opens at the top")
+    expect(MarkdownRenderer.renderedFraction(0.3, in: "no frontmatter\n") == 0.3, "frontmatter: fraction unchanged without a block")
+    expect(MarkdownRenderer.renderedFraction(0.5, in: "---\n---\n") == 0, "frontmatter: all-metadata document opens at the top")
+}
+
+do {
     let s = render("intro\n\n---\n\ntitle: Hello\n\n---\n\nbody\n")
     expect(s.string.contains("title: Hello") && hasAttachment(s), "frontmatter: `---` not on line 1 is a thematic break")
 }

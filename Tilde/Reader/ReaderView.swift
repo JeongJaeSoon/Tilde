@@ -140,6 +140,7 @@ struct ReaderView: NSViewRepresentable {
         func render(document: TextDocument, fontSize: CGFloat, baseURL: URL?, restoringFraction: CGFloat? = nil) {
             guard let textView else { return }
             let text = document.textStorage.string
+            let restoringFraction = restoringFraction.map { MarkdownRenderer.renderedFraction($0, in: text) }
             renderedText = text
             renderedSize = fontSize
             renderedBaseURL = baseURL
