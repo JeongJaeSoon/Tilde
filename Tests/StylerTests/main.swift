@@ -202,13 +202,14 @@ do {
 
 do {
     // Closing the block around an open fence line re-pairs every fence below.
-    let storage = NSTextStorage(string: "---\n```\nbody\n")
+    let storage = NSTextStorage(string: "---\n```\nbody\nmore\nlast\n")
     let styler = MarkdownStyler()
     storage.delegate = styler
     styler.restyleAll(storage)
     expect(isMono(font(storage, at: 8)), "frontmatter: unclosed block leaves ``` a fence")
     storage.replaceCharacters(in: NSRange(location: 8, length: 0), with: "---\n")
-    expect(!isMono(font(storage, at: 12)), "frontmatter: closing the block restyles the fence's code below")
+    let lastAt = (storage.string as NSString).range(of: "last").location
+    expect(!isMono(font(storage, at: lastAt)), "frontmatter: closing the block restyles the fence's code below")
 }
 
 do {
