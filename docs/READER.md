@@ -83,6 +83,7 @@ different app.
 | Blockquote | quoteColor + a quiet left bar (NSTextBlock border) |
 | Code block | codeFont + one filled NSTextBlock, tokens tinted by `CodeHighlighter` (comments/strings/numbers/keywords) |
 | Thematic break | hairline via 1-pt NSTextAttachment image spanning content width |
+| Frontmatter | hidden: a leading `---` … `---`/`...` block is sliced off before parsing, so the page starts at the real content (the editor keeps it editable). An unclosed `---` on line 1 stays a thematic break |
 | Link | linkColor + `.link` attribute (clickable; read-only view makes this safe). Relative paths resolve against the document's directory; `#fragment` links jump to the matching rendered heading (GitHub-style slugs, duplicates get `-1`/`-2`…); local files open as their own document windows (sandbox permitting); scheme'd URLs go to the system default |
 | Inline bold/italic/code/strike | same tokens as the editor styler |
 | Table | NSTextTable / NSTextTableBlock paragraph styles (see constraint A) |

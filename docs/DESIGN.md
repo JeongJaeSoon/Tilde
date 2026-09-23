@@ -232,12 +232,13 @@ Styling is **attributes only** — the character content of the buffer is never 
 | Link | link color | brackets/URL dim |
 | List bullet / number | body | marker slightly emphasized |
 | Horizontal rule | — | `---` dim |
+| Frontmatter (line 1 `---` … `---`/`...`) | `.secondaryLabelColor`, no Markdown rules inside | fences dim, never an HR |
 
 ### Algorithm
 
 1. On `NSTextStorage.processEditing`, expand the edited range to paragraph boundaries.
 2. Reset attributes in that range to body defaults, then apply line rules (heading, quote, list, HR) and inline rules (bold, italic, code, strikethrough, link) via scanner/regex.
-3. **Fenced code blocks** are the only cross-line state: maintain a cheap fence map (scan lines starting with ```` ``` ````) refreshed when a fence line itself is edited. Paragraphs inside a fence get only the code-block style.
+3. **Fenced code blocks** and the **leading frontmatter block** are the only cross-line state: maintain a cheap fence map (scan lines starting with ```` ``` ````) refreshed when a fence line itself is edited, and the frontmatter range, rescanned only when an edit reaches into it or line 1 opens a block that has not closed yet. Paragraphs inside a fence get only the code-block style; frontmatter lines get only the frontmatter style.
 4. Full-document pass runs once on open; afterwards only edited paragraphs are restyled.
 
 Styling applies only to `.md` / `.markdown` documents with the setting enabled. Plain text mode applies body attributes only.
