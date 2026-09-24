@@ -232,7 +232,7 @@ Styling is **attributes only** — the character content of the buffer is never 
 | Link | link color | brackets/URL dim |
 | List bullet / number | body | marker slightly emphasized |
 | Horizontal rule | — | `---` dim |
-| Frontmatter (line 1 `---` … `---`/`...`) | `.secondaryLabelColor`, no Markdown rules inside | fences dim, never an HR |
+| Frontmatter (line 1 `---` … `---`/`...`, empty or with a top-level `key:` line) | `.secondaryLabelColor`, no Markdown rules inside | fences dim, never an HR |
 
 ### Algorithm
 
