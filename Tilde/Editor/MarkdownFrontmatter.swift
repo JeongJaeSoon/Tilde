@@ -41,12 +41,12 @@ nonisolated enum MarkdownFrontmatter {
         return keyLine.firstMatch(in: string as String, range: body) != nil
     }
 
-    /// A top-level YAML `key:` — at column 0, followed by a space or the
-    /// end of the line. Headings and ordinary sentences never match; a
-    /// prose line such as `Note: …` does, which is the accepted cost of a
-    /// check that stops short of parsing YAML.
+    /// A top-level YAML `key:` — plain or quoted, at column 0, followed by
+    /// a space or the end of the line. Headings and ordinary sentences never
+    /// match; a prose line such as `Note: …` does, which is the accepted
+    /// cost of a check that stops short of parsing YAML.
     private static let keyLine = try! NSRegularExpression(
-        pattern: "^[\\w.$-]+[ \t]*:(?:[ \t\r]|$)",
+        pattern: "^(?:[\\w.$-]+|\"[^\"\r\n]*\"|'[^'\r\n]*')[ \t]*:(?:[ \t\r]|$)",
         options: .anchorsMatchLines
     )
 

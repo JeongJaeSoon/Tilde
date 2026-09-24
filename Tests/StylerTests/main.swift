@@ -182,6 +182,9 @@ do {
     expect(detect("---\n\n---\n") == NSRange(location: 0, length: 9), "frontmatter: blank-only block")
     expect(detect("---\nnote:\n---\n") != nil, "frontmatter: key with no value")
     expect(detect("---\n  indented: v\n---\n") == nil, "frontmatter: only an indented key does not count")
+    expect(detect("---\n\"publish date\": 2026-09-24\n---\n# Post\n") != nil, "frontmatter: double-quoted key")
+    expect(detect("---\n'k': v\n---\n") != nil, "frontmatter: single-quoted key")
+    expect(detect("---\n\"Hi,\" she said: fine.\n---\n") == nil, "frontmatter: quoted prose is not a key")
 }
 
 // A document that opens with a `---` rule and has another rule further
