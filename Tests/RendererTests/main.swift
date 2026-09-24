@@ -274,10 +274,41 @@ do {
     // 20-character block + 20-character body: the editor's fraction of the
     // whole source maps onto the body alone.
     let source = "---\ntitle: 1234\n---\n" + String(repeating: "b", count: 19) + "\n"
-    expect(MarkdownRenderer.renderedFraction(0.75, in: source) == 0.5, "frontmatter: reading fraction shifts past the hidden block")
-    expect(MarkdownRenderer.renderedFraction(0.25, in: source) == 0, "frontmatter: a position inside the metadata opens at the top")
-    expect(MarkdownRenderer.renderedFraction(0.3, in: "no frontmatter\n") == 0.3, "frontmatter: fraction unchanged without a block")
-    expect(MarkdownRenderer.renderedFraction(0.5, in: "---\n---\n") == 0, "frontmatter: all-metadata document opens at the top")
+    let hidden = renderer.renderDocument(source).hiddenLength
+    let length = (source as NSString).length
+    expect(hidden == 20, "frontmatter: rendering reports the hidden length")
+    expect(MarkdownRenderer.renderedFraction(0.75, hiddenLength: hidden, sourceLength: length) == 0.5, "frontmatter: reading fraction shifts past the hidden block")
+    expect(MarkdownRenderer.renderedFraction(0.25, hiddenLength: hidden, sourceLength: length) == 0, "frontmatter: a position inside the metadata opens at the top")
+    expect(MarkdownRenderer.renderedFraction(0.3, hiddenLength: 0, sourceLength: 15) == 0.3, "frontmatter: fraction unchanged without a block")
+    expect(renderer.renderDocument("---\nk: v\n---\n").hiddenLength == 0, "frontmatter: nothing hidden when the block is shown as a listing")
+}
+
+// heyeuca/Tilde#10 review: rule-delimited prose must not vanish, and a
+// document that is only metadata must not render as a blank page.
+do {
+    let s = render("---\n\n# Chapter One\n\nIt began quietly.\n\n---\n\n# Chapter Two\n\nThen it did not.\n")
+    var rules = 0
+    s.enumerateAttribute(.attachment, in: NSRange(location: 0, length: s.length)) { value, _, _ in
+        if value != nil { rules += 1 }
+    }
+    expect(s.string.contains("Chapter One") && s.string.contains("It began quietly."), "frontmatter: chapters between rules stay visible")
+    expect(rules == 2, "frontmatter: both rules still render (\(rules))")
+}
+
+do {
+    let s = render("---\n\nShe paused.\n\n...\n\nAnd then she spoke.\n")
+    expect(s.string.contains("She paused.") && s.string.contains("And then she spoke."), "frontmatter: prose before `...` stays visible")
+}
+
+do {
+    let source = "---\nname: my-skill\ndescription: Does a thing\n---\n"
+    let s = render(source)
+    let at = offset(of: "name: my-skill", in: s)
+    expect(at != NSNotFound, "frontmatter-only: the block is shown instead of a blank page")
+    expect(at != NSNotFound && isMono(font(s, at: at)), "frontmatter-only: shown as a code listing")
+    expect(at != NSNotFound && s.attribute(EditorTheme.codeBlockMarker, at: at, effectiveRange: nil) != nil, "frontmatter-only: listing gets the code block background")
+    expect(render("---\nk: v\n---\n\n  \n").string.contains("k: v"), "frontmatter-only: trailing blank lines still count as empty")
+    expect(render("---\nk: ```\n---\n").string.contains("k: ```"), "frontmatter-only: backticks inside the block survive the listing fence")
 }
 
 do {

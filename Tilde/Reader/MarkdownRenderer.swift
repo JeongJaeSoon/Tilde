@@ -45,16 +45,22 @@ nonisolated struct MarkdownRenderer {
         return String(slug)
     }
 
+    /// A rendered document and how many source characters (UTF-16) were
+    /// hidden in front of it — the frontmatter block, when one was dropped.
+    struct Rendering {
+        var text: NSAttributedString
+        var hiddenLength: Int
+    }
+
     /// The editor reports its reading position as a fraction of the whole
     /// source, but the rendered text starts after the hidden frontmatter:
     /// shift the fraction past it, so a position inside the metadata opens
     /// Reader at the top.
-    static func renderedFraction(_ sourceFraction: CGFloat, in source: String) -> CGFloat {
-        let nsSource = source as NSString
-        guard let frontmatter = MarkdownFrontmatter.range(in: nsSource) else { return sourceFraction }
-        guard nsSource.length > frontmatter.length else { return 0 }
-        let hidden = CGFloat(frontmatter.length)
-        let total = CGFloat(nsSource.length)
+    static func renderedFraction(_ sourceFraction: CGFloat, hiddenLength: Int, sourceLength: Int) -> CGFloat {
+        guard hiddenLength > 0 else { return sourceFraction }
+        guard sourceLength > hiddenLength else { return 0 }
+        let hidden = CGFloat(hiddenLength)
+        let total = CGFloat(sourceLength)
         return max(0, (sourceFraction * total - hidden) / (total - hidden))
     }
 
@@ -67,14 +73,28 @@ nonisolated struct MarkdownRenderer {
     // MARK: - Entry point
 
     func render(_ source: String) -> NSAttributedString {
+        renderDocument(source).text
+    }
+
+    func renderDocument(_ source: String) -> Rendering {
         // Frontmatter is hidden, not rendered: the parser would show its
         // fences as rules and its keys as loose paragraphs. The metadata
         // stays editable in the editor. A metadata card above the content
         // is the upgrade if readers turn out to want a title or date shown.
         var markdown = source
+        var hiddenLength = 0
         let nsSource = source as NSString
         if let frontmatter = MarkdownFrontmatter.range(in: nsSource) {
-            markdown = nsSource.substring(from: NSMaxRange(frontmatter))
+            let body = nsSource.substring(from: NSMaxRange(frontmatter))
+            if body.contains(where: { !$0.isWhitespace }) {
+                markdown = body
+                hiddenLength = frontmatter.length
+            } else {
+                // Nothing but metadata (a SKILL.md, a Hugo _index.md): an
+                // empty page would read as a failed render, so show the
+                // block itself as a quiet code listing.
+                markdown = Self.codeListing(nsSource.substring(with: frontmatter))
+            }
         }
 
         let options = AttributedString.MarkdownParsingOptions(
@@ -85,12 +105,24 @@ nonisolated struct MarkdownRenderer {
         guard let parsed = try? AttributedString(markdown: markdown, options: options) else {
             // The parser should never throw under this policy, but never
             // fail to show something: fall back to plain body text.
-            return NSAttributedString(
-                string: markdown,
-                attributes: EditorTheme.bodyAttributes(monospaced: false, size: fontSize)
+            return Rendering(
+                text: NSAttributedString(
+                    string: markdown,
+                    attributes: EditorTheme.bodyAttributes(monospaced: false, size: fontSize)
+                ),
+                hiddenLength: hiddenLength
             )
         }
-        return build(from: parsed)
+        return Rendering(text: build(from: parsed), hiddenLength: hiddenLength)
+    }
+
+    /// `text` as a fenced YAML listing, with a fence longer than any
+    /// backtick run inside it.
+    private static func codeListing(_ text: String) -> String {
+        var fence = "```"
+        while text.contains(fence) { fence += "`" }
+        let body = text.hasSuffix("\n") ? text : text + "\n"
+        return fence + "yaml\n" + body + fence + "\n"
     }
 
     // MARK: - Block grouping

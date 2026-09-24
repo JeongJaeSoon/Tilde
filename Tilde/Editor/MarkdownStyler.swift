@@ -36,9 +36,10 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
     /// restyle; a change means code regions after the edit re-paired.
     private var activeFenceCount: Int?
 
-    /// The leading frontmatter block and the text length it was found in;
-    /// nil until the first scan.
-    private var frontmatterCache: (block: NSRange?, length: Int)?
+    /// Line 1 through the first closing fence (valid frontmatter or not)
+    /// and the block it yields when valid; nil until the first scan. Shares
+    /// `cachedLength` with the fence cache — both update on the same passes.
+    private var frontmatterCache: (candidate: NSRange?, block: NSRange?)?
 
     // MARK: - NSTextStorageDelegate
 
@@ -68,7 +69,7 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
         guard string.length > 0 else {
             fenceCache = []
             cachedLength = 0
-            frontmatterCache = (nil, 0)
+            frontmatterCache = (nil, nil)
             activeFenceCount = 0
             return
         }
@@ -83,8 +84,9 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
             window = string.paragraphRange(for: probe)
         }
 
+        let lengthMatches = cachedLength + delta == string.length
         let previousFrontmatter = frontmatterCache?.block
-        let frontmatter = stylesMarkdown ? updatedFrontmatter(string: string, window: window, delta: delta) : nil
+        let frontmatter = stylesMarkdown ? updatedFrontmatter(string: string, window: window, lengthMatches: lengthMatches) : nil
 
         let frontmatterEnd = frontmatter.map(NSMaxRange) ?? 0
 
@@ -132,31 +134,31 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
 
     // MARK: - Frontmatter
 
-    /// Brings the cached frontmatter block up to date for the given edit.
+    /// Brings the cached frontmatter candidate up to date for the given
+    /// edit and returns the valid block, if any.
     ///
-    /// An edit after the block cannot change it. With no block, only line 1
-    /// can open one, and when line 1 already opens a block that never
-    /// closed, the only new closing fence can be in the edited paragraphs.
-    /// Edits on line 1 or inside the block rescan from the top — to EOF when
+    /// An edit past the candidate cannot change it. With no candidate, only
+    /// line 1 can open one, and when line 1 opens a block that never closed,
+    /// the only new closing fence can be in the edited paragraphs. Edits on
+    /// line 1 or inside the candidate rescan from the top — to EOF when
     /// line 1 is an unclosed `---` rule (about 10 ms per 4 MB).
-    private func updatedFrontmatter(string: NSString, window: NSRange?, delta: Int) -> NSRange? {
-        if let cache = frontmatterCache, let window, window.location > 0, cache.length + delta == string.length {
-            if let block = cache.block {
-                if window.location >= NSMaxRange(block) {
-                    frontmatterCache = (block, string.length)
-                    return block
-                }
+    private func updatedFrontmatter(string: NSString, window: NSRange?, lengthMatches: Bool) -> NSRange? {
+        let candidate: NSRange?
+        if let cache = frontmatterCache, let window, window.location > 0, lengthMatches {
+            if let previous = cache.candidate {
+                if window.location >= NSMaxRange(previous) { return cache.block }
+                candidate = MarkdownFrontmatter.candidate(in: string)
+            } else if MarkdownFrontmatter.openingLine(in: string) != nil {
+                candidate = MarkdownFrontmatter.closingLine(in: string, within: window)
+                    .map { NSRange(location: 0, length: NSMaxRange($0)) }
             } else {
-                let block = MarkdownFrontmatter.openingLine(in: string) == nil
-                    ? nil
-                    : MarkdownFrontmatter.closingLine(in: string, within: window)
-                        .map { NSRange(location: 0, length: NSMaxRange($0)) }
-                frontmatterCache = (block, string.length)
-                return block
+                candidate = nil
             }
+        } else {
+            candidate = MarkdownFrontmatter.candidate(in: string)
         }
-        let block = MarkdownFrontmatter.range(in: string)
-        frontmatterCache = (block, string.length)
+        let block = candidate.flatMap { MarkdownFrontmatter.isMetadata($0, in: string) ? $0 : nil }
+        frontmatterCache = (candidate, block)
         return block
     }
 

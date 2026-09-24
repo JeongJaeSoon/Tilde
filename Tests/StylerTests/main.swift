@@ -179,6 +179,42 @@ do {
     expect(detect("---\na: b\n----\n") == nil, "frontmatter: four dashes do not close")
     expect(detect("---\na: b\n --- \n") == nil, "frontmatter: indented fence does not close")
     expect(detect("...\na: b\n...\n") == nil, "frontmatter: `...` does not open")
+    expect(detect("---\n\n---\n") == NSRange(location: 0, length: 9), "frontmatter: blank-only block")
+    expect(detect("---\nnote:\n---\n") != nil, "frontmatter: key with no value")
+    expect(detect("---\n  indented: v\n---\n") == nil, "frontmatter: only an indented key does not count")
+}
+
+// A document that opens with a `---` rule and has another rule further
+// down is not frontmatter: no line between reads as a `key:`
+// (heyeuca/Tilde#10 review).
+let chapters = "---\n\n# Chapter One\n\nIt began quietly.\n\n---\n\n# Chapter Two\n\nThen it did not.\n"
+let pause = "---\n\nShe paused.\n\n...\n\nAnd then she spoke.\n"
+
+do {
+    expect(MarkdownFrontmatter.range(in: chapters as NSString) == nil, "frontmatter: rule-delimited chapters are not frontmatter")
+    expect(MarkdownFrontmatter.range(in: pause as NSString) == nil, "frontmatter: `...` after prose is not frontmatter")
+    let s = styled(chapters)
+    let ns = chapters as NSString
+    expect(font(s, at: ns.range(of: "Chapter One").location)?.pointSize == EditorTheme.headingFont(level: 1, size: EditorTheme.defaultFontSize).pointSize, "frontmatter: chapter heading keeps heading style")
+    expect(color(s, at: ns.range(of: "It began").location) == NSColor.textColor, "frontmatter: chapter body keeps body color")
+    let p = styled(pause)
+    expect(color(p, at: (pause as NSString).range(of: "She paused").location) == NSColor.textColor, "frontmatter: prose before `...` keeps body color")
+}
+
+do {
+    // Adding the first `key:` line turns a rule-delimited section into
+    // frontmatter; removing it turns it back.
+    let storage = NSTextStorage(string: "---\n\n# One\n\n---\nbody\n")
+    let styler = MarkdownStyler()
+    storage.delegate = styler
+    styler.restyleAll(storage)
+    let headingSize = EditorTheme.headingFont(level: 1, size: EditorTheme.defaultFontSize).pointSize
+    func oneAt() -> Int { (storage.string as NSString).range(of: "One").location }
+    expect(font(storage, at: oneAt())?.pointSize == headingSize, "frontmatter: section without keys stays Markdown")
+    storage.replaceCharacters(in: NSRange(location: 4, length: 0), with: "k: v\n")
+    expect(color(storage, at: oneAt()) == EditorTheme.quoteColor, "frontmatter: typing a key line makes the section metadata")
+    storage.replaceCharacters(in: NSRange(location: 4, length: 5), with: "")
+    expect(font(storage, at: oneAt())?.pointSize == headingSize, "frontmatter: deleting the key line restores Markdown")
 }
 
 do {
@@ -202,12 +238,12 @@ do {
 
 do {
     // Closing the block around an open fence line re-pairs every fence below.
-    let storage = NSTextStorage(string: "---\n```\nbody\nmore\nlast\n")
+    let storage = NSTextStorage(string: "---\nk: v\n```\nbody\nmore\nlast\n")
     let styler = MarkdownStyler()
     storage.delegate = styler
     styler.restyleAll(storage)
-    expect(isMono(font(storage, at: 8)), "frontmatter: unclosed block leaves ``` a fence")
-    storage.replaceCharacters(in: NSRange(location: 8, length: 0), with: "---\n")
+    expect(isMono(font(storage, at: 13)), "frontmatter: unclosed block leaves ``` a fence")
+    storage.replaceCharacters(in: NSRange(location: 13, length: 0), with: "---\n")
     let lastAt = (storage.string as NSString).range(of: "last").location
     expect(!isMono(font(storage, at: lastAt)), "frontmatter: closing the block restyles the fence's code below")
 }
@@ -334,8 +370,9 @@ do {
 
 // MARK: - Fuzz: incremental fence cache must match a full scan
 
-/// Applies 400 random edits through the delegate and returns how many
-/// sampled positions differ from a fresh full restyle.
+/// Applies 400 random edits through the delegate — some batched inside
+/// one beginEditing/endEditing — and returns how many positions differ,
+/// in any attribute, from a fresh full restyle.
 func fuzzMismatches(start: String, pieces: [String]) -> Int {
     // Deterministic PRNG so failures are reproducible.
     var seed: UInt64 = 0x5eed
@@ -353,8 +390,18 @@ func fuzzMismatches(start: String, pieces: [String]) -> Int {
     for i in 0..<400 {
         let ns = storage.string as NSString
         let len = ns.length
-        let kind = rand(3)
-        if kind == 0 || len < 10 {
+        let kind = rand(4)
+        if kind == 3, len >= 10 {
+            // several edits delivered to the styler as one processEditing
+            storage.beginEditing()
+            for _ in 0..<(2 + rand(2)) {
+                let length = storage.length
+                let at = rand(length + 1)
+                let removeLength = min(rand(4), length - at)
+                storage.replaceCharacters(in: NSRange(location: at, length: removeLength), with: rand(2) == 0 ? pieces[rand(pieces.count)] : "")
+            }
+            storage.endEditing()
+        } else if kind == 0 || len < 10 {
             // insert a random piece; often at the start, where line 1
             // decides whether a frontmatter block exists at all
             let at = rand(4) == 0 ? 0 : rand(len + 1)
@@ -377,17 +424,14 @@ func fuzzMismatches(start: String, pieces: [String]) -> Int {
         let freshStorage = NSTextStorage(string: storage.string)
         let freshStyler = MarkdownStyler()
         freshStyler.restyleAll(freshStorage)
-        // Compare rendered attributes at every position.
+        // Compare every attribute (paragraph style and the code-block
+        // marker included) at every position.
         for at in 0..<current.length {
             let a = storage.attributes(at: at, effectiveRange: nil)
             let b = freshStorage.attributes(at: at, effectiveRange: nil)
-            let aFont = a[.font] as? NSFont
-            let bFont = b[.font] as? NSFont
-            let aColor = a[.foregroundColor] as? NSColor
-            let bColor = b[.foregroundColor] as? NSColor
-            if aFont != bFont || aColor != bColor {
+            if !(a as NSDictionary).isEqual(to: b) {
                 if mismatches == 0 {
-                    print("mismatch at step \(i), offset \(at): \(String(describing: aFont)) vs \(String(describing: bFont)), \(String(describing: aColor)) vs \(String(describing: bColor))")
+                    print("mismatch at step \(i), offset \(at):\n  live:  \(a)\n  fresh: \(b)")
                     print("fresh fences: \(fresh)")
                 }
                 mismatches += 1
@@ -404,7 +448,8 @@ do {
 }
 
 do {
-    let pieces = ["---\n", "---", "...\n", "-", "\n", "key: v\n", "a_b_c ", "# h\n", "text\n", "```\n"]
+    let pieces = ["---\n", "---", "...\n", "-", "\n", "key: v\n", "a_b_c ", "# h\n", "text\n", "```\n",
+                  "---\n```\n", "key: v\n---\n", "\n---\n\n# h\n", "k:\n"]
     let mismatches = fuzzMismatches(start: "---\ntitle: x\n---\nbody\n---\nmore\n", pieces: pieces)
     expect(mismatches == 0, "fuzz: 400 frontmatter edits — incremental styling matches full restyle (\(mismatches) mismatches)")
 }

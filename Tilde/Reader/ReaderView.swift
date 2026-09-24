@@ -148,8 +148,11 @@ struct ReaderView: NSViewRepresentable {
             let renderer = MarkdownRenderer(fontSize: fontSize, baseURL: baseURL)
 
             if text.utf8.count <= Self.syncThreshold {
-                textView.textStorage?.setAttributedString(renderer.render(text))
-                if let restoringFraction = restoringFraction.map({ MarkdownRenderer.renderedFraction($0, in: text) }) {
+                let rendering = renderer.renderDocument(text)
+                textView.textStorage?.setAttributedString(rendering.text)
+                if let restoringFraction = restoringFraction.map({
+                    MarkdownRenderer.renderedFraction($0, hiddenLength: rendering.hiddenLength, sourceLength: (text as NSString).length)
+                }) {
                     // Geometry (window, frame) is only trustworthy one
                     // runloop after makeNSView; the content is already in
                     // place, so the deferred scroll doesn't flash.
@@ -163,10 +166,11 @@ struct ReaderView: NSViewRepresentable {
             // Apple's Markdown parser dominates the cost on multi-hundred-KB
             // documents and cannot be sped up, so render off the main thread.
             DispatchQueue.global(qos: .userInitiated).async {
-                let rendered = renderer.render(text)
-                // Mapped here, not on entry: finding the hidden frontmatter
-                // can scan the whole document when line 1 is an unclosed `---`.
-                let restoringFraction = restoringFraction.map { MarkdownRenderer.renderedFraction($0, in: text) }
+                let rendering = renderer.renderDocument(text)
+                let rendered = rendering.text
+                let restoringFraction = restoringFraction.map {
+                    MarkdownRenderer.renderedFraction($0, hiddenLength: rendering.hiddenLength, sourceLength: (text as NSString).length)
+                }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.generation == token, let textView = self.textView else { return }
                     textView.textStorage?.setAttributedString(rendered)
