@@ -64,10 +64,10 @@ final class EditorTextView: NSTextView {
         }
     }
 
-    /// Text height of the body font and the line rhythm (text height plus
-    /// `lineSpacing`), set by the coordinator. `nil` leaves the caret alone.
+    /// Text height of the body font and its `lineSpacing`, set by the
+    /// coordinator. `nil` leaves the caret alone.
     var caretHeight: CGFloat?
-    var lineRhythm: CGFloat?
+    var bodyLineSpacing: CGFloat?
 
     /// The caret on the final (virtual) line — the one after a trailing
     /// newline — is laid out by TextKit 2 as an extra line inside the last
@@ -76,8 +76,15 @@ final class EditorTextView: NSTextView {
     /// and the gap above it depends on how the line was reached and on
     /// whether the paragraph before is blank or first in the document
     /// (−8 pt, 0, or +8 pt off the rhythm). Text typed there lands on the
-    /// rhythm, so the caret is placed where that text will appear: one line
-    /// rhythm below the top of the last real line, text-height tall.
+    /// rhythm, so the caret is placed where that text will appear: one
+    /// `lineSpacing` below the bottom of the last real line, text-height
+    /// tall. Measuring from the bottom keeps it right after a heading,
+    /// whose line is taller than the body rhythm.
+    ///
+    /// Every other caret is left as TextKit lays it out: on a real line it
+    /// already spans that line's text height, and a heading's caret must
+    /// stay heading-tall — clamped to the body height it hugged the top of
+    /// the glyphs, far above the baseline.
     ///
     /// The caret is an `NSTextInsertionIndicator` subview; AppKit sets its
     /// frame when the insertion point updates and again in `layout()`, so
@@ -93,7 +100,7 @@ final class EditorTextView: NSTextView {
     }
 
     private func adjustInsertionIndicator() {
-        guard let caretHeight else { return }
+        guard let caretHeight, isCaretOnExtraLine else { return }
         let shift = extraLineCaretShift()
         for case let indicator as NSTextInsertionIndicator in subviews {
             var frame = indicator.frame
@@ -103,20 +110,20 @@ final class EditorTextView: NSTextView {
         }
     }
 
-    /// How far the extra line's caret must move to sit one rhythm below the
-    /// last real line; 0 when the caret is anywhere else.
-    private func extraLineCaretShift() -> CGFloat {
-        guard
-            let lineRhythm,
-            let layoutManager = textLayoutManager,
-            let storage = textStorage
-        else { return 0 }
+    /// Whether the caret sits on the extra line: at the very end of an
+    /// empty document or of one ending in a newline.
+    private var isCaretOnExtraLine: Bool {
+        guard let storage = textStorage else { return false }
         let selection = selectedRange()
         let length = storage.length
-        guard
-            selection.length == 0, selection.location == length, length > 0,
-            storage.mutableString.character(at: length - 1) == 0x0A
-        else { return 0 }
+        return selection.length == 0 && selection.location == length
+            && (length == 0 || storage.mutableString.character(at: length - 1) == 0x0A)
+    }
+
+    /// How far the extra line's caret must move to sit one `lineSpacing`
+    /// below the last real line; 0 when there is no real line before it.
+    private func extraLineCaretShift() -> CGFloat {
+        guard let bodyLineSpacing, let layoutManager = textLayoutManager else { return 0 }
 
         // The last fragment holds the last real line followed by the extra line.
         var last: NSTextLayoutFragment?
@@ -125,9 +132,9 @@ final class EditorTextView: NSTextView {
         ) { fragment in last = fragment; return false }
         guard let last, last.textLineFragments.count >= 2 else { return 0 }
         let lines = last.textLineFragments
-        let realTop = lines[lines.count - 2].typographicBounds.minY
+        let realBottom = lines[lines.count - 2].typographicBounds.maxY
         let extraTop = lines[lines.count - 1].typographicBounds.minY
-        return realTop + lineRhythm - extraTop
+        return realBottom + bodyLineSpacing - extraTop
     }
 
     override func drawBackground(in rect: NSRect) {
