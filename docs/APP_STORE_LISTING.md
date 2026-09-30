@@ -1,4 +1,4 @@
-# App Store Connect 등록 문안 (Tilde v1.1.0)
+# App Store Connect 등록 문안 (Tilde v1.1.1)
 
 각 항목의 글자 수 제한은 App Store Connect 기준이며, `scripts/check_listing.py`로 검증할 수 있다.
 
@@ -19,7 +19,7 @@
 | --- | --- |
 | Bundle ID | `co.euca.Tilde` |
 | SKU | `tilde-macos` |
-| Version | `1.1.0` |
+| Version | `1.1.1` |
 | Primary Language | English (U.S.) |
 | Primary Category | Productivity |
 | Secondary Category | Developer Tools |
@@ -145,8 +145,8 @@ Just open the file.
 
 **What's New in This Version**
 ```
-• YAML frontmatter at the top of a Markdown file is now recognized. The editor dims its fences and leaves the lines between them plain, with no Markdown styling
-• Reader shows frontmatter as a quiet header: the title on top, the other fields as rows. Long headers fold into "+N more" and long values into "more" — click to see the rest
+• Files that mix line endings keep them: saving changes only the endings of lines you added or edited, and a save without edits leaves the file exactly as it was
+• On a Markdown heading line the caret now spans the heading's text, and on the last line after a heading it sits one line below instead of inside it
 ```
 
 ---
@@ -215,8 +215,8 @@ Tilde는 MIT 라이선스의 오픈 소스입니다.
 
 **What's New in This Version**
 ```
-• Markdown 파일 맨 앞의 YAML 프론트매터를 인식합니다. 편집기는 구분선을 흐리게 하고, 그 사이 줄에는 Markdown 스타일을 적용하지 않습니다
-• Reader 모드가 프론트매터를 조용한 머리글로 보여 줍니다. 제목은 맨 위에, 나머지 항목은 행으로 표시하며 긴 머리글은 '외 N개', 긴 값은 '더 보기'로 접습니다. 클릭하면 나머지를 볼 수 있습니다
+• 줄바꿈 방식이 섞인 파일도 그대로 유지합니다. 저장할 때 새로 쓰거나 고친 줄의 줄바꿈만 바뀌고, 고친 곳 없이 저장하면 파일이 전혀 바뀌지 않습니다
+• Markdown 제목 줄에서 커서가 제목 글자 높이만큼 표시되고, 제목 다음 마지막 줄에서는 제목 안이 아니라 한 줄 아래에 놓입니다
 ```
 
 ---
@@ -285,8 +285,8 @@ TildeはMITライセンスのオープンソースです。
 
 **What's New in This Version**
 ```
-• Markdownファイル先頭のYAMLフロントマターを認識するようになりました。エディタは区切り線を淡く表示し、その間の行にはMarkdownのスタイルを適用しません
-• リーダーモードでフロントマターを控えめなヘッダーとして表示します。タイトルを先頭に、ほかの項目を行に並べ、長いヘッダーは「ほかN件」、長い値は「もっと見る」に折りたたみます。クリックで残りを表示できます
+• 改行コードが混在したファイルもそのまま保ちます。保存時に改行コードが変わるのは追加・編集した行だけで、編集せずに保存してもファイルは一切変わりません
+• Markdownの見出し行ではキャレットが見出しの文字の高さで表示され、見出しの後の最終行では見出しの中ではなく一行下に置かれます
 ```
 
 ---
@@ -355,6 +355,6 @@ Tilde 基于 MIT 许可证开源。
 
 **What's New in This Version**
 ```
-• 现在可识别 Markdown 文件开头的 YAML front matter。编辑器会淡化其分隔线,中间各行不应用 Markdown 样式
-• 阅读模式将 front matter 显示为安静的标题区:标题在上,其余字段逐行排列。较长的标题区折叠为"另有 N 项",较长的值折叠为"更多",点击即可查看其余内容
+• 混用多种换行符的文件会保持原样:保存时只有新增或编辑过的行会改变换行符,未编辑直接保存时文件完全不变
+• 在 Markdown 标题行上,光标现在与标题文字等高;在标题之后的最后一行,光标位于标题下一行,而不是标题内部
 ```
