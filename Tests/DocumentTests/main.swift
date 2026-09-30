@@ -209,6 +209,152 @@ do {
     expect(result.text == "" && result.lineEnding == .lf, "empty string defaults")
 }
 
+// MARK: - Mixed line endings keep untouched lines' endings (issue #17)
+
+/// Loads `original` the way `TextDocument` does, applies `edit` to the
+/// LF-normalized buffer, and returns what saving would write.
+func saved(_ original: String, _ edit: (String) -> String = { $0 }) -> String {
+    let loaded = LineEnding.normalizeToLF(original, recordingMixed: true)
+    let snapshot = LineEnding.normalizeToLF(edit(loaded.text)).text
+    return loaded.mixed?.restore(in: snapshot, dominant: loaded.lineEnding)
+        ?? loaded.lineEnding.restore(in: snapshot)
+}
+
+// Uniform files record nothing, so they pay nothing.
+do {
+    expect(LineEnding.normalizeToLF("a\r\nb\r\n", recordingMixed: true).mixed == nil,
+           "uniform crlf records no mixed endings")
+    expect(LineEnding.normalizeToLF("a\nb\n", recordingMixed: true).mixed == nil,
+           "uniform lf records no mixed endings")
+    expect(LineEnding.normalizeToLF("a\r\nb\nc\r\n").mixed == nil,
+           "mixed endings recorded only when asked (paste path)")
+    let mixed = LineEnding.normalizeToLF("a\r\nb\nc\r", recordingMixed: true).mixed
+    expect(mixed?.endings == [.crlf, .lf, .cr], "mixed endings recorded in order")
+}
+
+// No edits (autosave, Save As, Duplicate): byte-identical.
+do {
+    let samples = [
+        "a\r\nb\r\nc\r\nd\ne\r\n",
+        "a\nb\r\nc\rd\n",
+        "a\r\nb\nno newline at end",
+        "\r\n\n\r\n\n",
+        "x\r\ny\n\n\r\n",
+    ]
+    expect(samples.allSatisfy { saved($0) == $0 }, "unedited mixed file saves byte-identically")
+}
+
+// The issue's repro: editing line 1 leaves line d's LF alone.
+do {
+    let result = saved("a\r\nb\r\nc\r\nd\ne\r\n") { $0.replacingOccurrences(of: "a\n", with: "A\n") }
+    expect(result == "A\r\nb\r\nc\r\nd\ne\r\n", "editing one line keeps the others' endings")
+}
+
+// An edited line takes the dominant ending, even if it was LF before.
+do {
+    let result = saved("a\r\nb\nc\r\nd\r\n") { $0.replacingOccurrences(of: "b\n", with: "B\n") }
+    expect(result == "a\r\nB\r\nc\r\nd\r\n", "edited line takes the dominant ending")
+}
+
+// An inserted line takes the dominant ending.
+do {
+    let result = saved("a\r\nb\nc\r\nd\r\n") { $0.replacingOccurrences(of: "b\n", with: "b\nnew\n") }
+    expect(result == "a\r\nb\nnew\r\nc\r\nd\r\n", "inserted line takes the dominant ending")
+}
+
+// Deleting a line leaves its neighbours' endings alone.
+do {
+    let result = saved("a\r\nb\nc\r\nd\ne\r\n") { $0.replacingOccurrences(of: "c\n", with: "") }
+    expect(result == "a\r\nb\nd\ne\r\n", "deleting a line keeps its neighbours' endings")
+}
+
+// Several separate edits: untouched lines between them keep theirs.
+do {
+    let result = saved("1\r\n2\n3\r\n4\n5\r\n6\n7\r\n") { text in
+        text.replacingOccurrences(of: "2\n", with: "two\n")
+            .replacingOccurrences(of: "6\n", with: "six\n")
+    }
+    expect(result == "1\r\ntwo\r\n3\r\n4\n5\r\nsix\r\n7\r\n", "untouched lines between edits keep their endings")
+}
+
+// Identical lines are interchangeable: the one the pairing calls new
+// takes the dominant ending, and the originals keep theirs in order.
+do {
+    let result = saved("x\r\nx\nx\r\nx\n") { "x\n" + $0 }
+    expect(result == "x\r\nx\nx\r\nx\nx\r\n", "inserting a duplicate line keeps the existing endings in order")
+}
+
+// A CR line in the mix survives an edit elsewhere; a CR-dominant file
+// gives the edited line CR.
+do {
+    let result = saved("a\r\nb\rc\r\nd\r\n") { $0.replacingOccurrences(of: "d\n", with: "D\n") }
+    expect(result == "a\r\nb\rc\r\nD\r\n", "cr line survives an edit elsewhere")
+    let crDominant = saved("a\rb\rc\nd\r") { $0.replacingOccurrences(of: "a\n", with: "A\n") }
+    expect(crDominant == "A\rb\rc\nd\r", "cr-dominant file gives the edited line cr")
+}
+
+// A last line without a newline never gains one; a line typed after it
+// makes the old last line end with the dominant ending.
+do {
+    let edited = saved("a\r\nb\nc") { $0.replacingOccurrences(of: "c", with: "C") }
+    expect(edited == "a\r\nb\nC", "edited last line gains no newline")
+    let appended = saved("a\r\nb\nc") { $0 + "\nd" }
+    expect(appended == "a\r\nb\nc\r\nd", "line after the old last line: dominant ending, still none at end")
+    let newline = saved("a\r\nb\nc") { $0 + "\n" }
+    expect(newline == "a\r\nb\nc\r\n", "newline typed at the end takes the dominant ending")
+}
+
+// Moving a line counts as new: it takes the dominant ending.
+do {
+    let result = saved("a\r\nm\nb\r\nc\r\nd\r\n") { _ in "a\nb\nc\nd\nm\n" }
+    expect(result == "a\r\nb\r\nc\r\nd\r\nm\r\n", "moved line takes the dominant ending")
+}
+
+// Everything deleted, or everything replaced.
+do {
+    expect(saved("a\r\nb\n") { _ in "" } == "", "emptied mixed file saves empty")
+    expect(saved("a\r\nb\nc\r\n") { _ in "x\ny\n" } == "x\r\ny\r\n", "fully replaced file takes the dominant ending")
+}
+
+// A middle past the diff limit skips the diff and takes the dominant ending.
+do {
+    let n = MixedLineEndings.diffLimit + 1
+    var original = "head\n"
+    for i in 0..<n { original += "line \(i)" + (i == 0 ? "\n" : "\r\n") }
+    original += "tail\n"
+    let result = saved(original) { $0.replacingOccurrences(of: "line", with: "LINE") }
+    expect(result.hasPrefix("head\nLINE 0\r\nLINE 1\r\n"), "large middle falls back to the dominant ending")
+    expect(result.hasSuffix("\r\ntail\n"), "large middle keeps the untouched prefix and suffix endings")
+}
+
+// A large but local edit stays fast: prefix/suffix trimming leaves a tiny middle.
+do {
+    var original = ""
+    for i in 0..<200_000 { original += "line \(i)" + (i % 7 == 0 ? "\n" : "\r\n") }
+    let start = Date()
+    let edited = saved(original) { text in
+        var lines = text.components(separatedBy: "\n")
+        lines[100_000] = "edited"
+        return lines.joined(separator: "\n")
+    }
+    let elapsed = Date().timeIntervalSince(start)
+    let expected = original.replacingOccurrences(of: "line 100000\r\n", with: "edited\r\n")
+    expect(edited == expected, "one edit in a 200k-line mixed file changes only that line")
+    expect(elapsed < 2, "200k-line mixed save stays fast (\(String(format: "%.2f", elapsed))s)")
+}
+
+// Worst case under the limit: every middle line replaced on both sides.
+do {
+    let n = MixedLineEndings.diffLimit
+    var original = ""
+    for i in 0..<n { original += "old \(i)" + (i.isMultiple(of: 2) ? "\n" : "\r\n") }
+    let start = Date()
+    let result = saved(original) { $0.replacingOccurrences(of: "old", with: "new") }
+    let elapsed = Date().timeIntervalSince(start)
+    expect(!result.contains("\n\n") && result.hasSuffix("\r\n"), "full rewrite under the limit saves")
+    print("      full rewrite of \(n) lines: \(String(format: "%.2f", elapsed))s")
+}
+
 // MARK: - Markdown-ness follows the live extension (2026-08 app review P2)
 
 // A document opened as Markdown then saved as .txt/.json must LEAVE

@@ -8,6 +8,7 @@
 #   2. Reader (⌘⇧R) → Esc → type → text lands in the body
 #   3. Lossy-encoding file       → read-only, bytes never change
 #   4. CRLF paste                → normalized to LF; saved bytes stay clean
+#   5. Mixed line endings        → an edit keeps untouched lines' endings
 #
 # Scenario 4 uses the clipboard: the current TEXT clipboard is saved and
 # restored, but non-text clipboard content is lost.
@@ -132,6 +133,20 @@ else
     result 1 "CRLF paste checks (no window)"
 fi
 printf '%s' "$clipboard_backup" | pbcopy
+kill_app
+
+# ── 5. Mixed line endings: untouched lines keep theirs (issue #17) ───────
+printf 'a\r\nb\r\nc\r\nd\ne\r\n' > "$WORK/mixed.txt"
+if launch "$WORK/mixed.txt"; then
+    type_text "X"   # caret opens at the start: line 1 becomes "Xa"
+    sleep 0.5
+    tell_app 'keystroke "s" using command down'
+    sleep 1
+    [[ "$(od -An -c "$WORK/mixed.txt" | tr -d ' \n')" == 'Xa\r\nb\r\nc\r\nd\ne\r\n' ]]
+    result $? "mixed-ending file keeps untouched lines' endings on ⌘S"
+else
+    result 1 "mixed line ending checks (no window)"
+fi
 kill_app
 
 echo

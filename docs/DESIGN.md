@@ -53,7 +53,7 @@ Tilde
 │   ├── TextDocument.swift         ReferenceFileDocument; owns the storage,
 │   │                              tracks encoding + line endings
 │   ├── FileEncoding.swift         Encoding detection (BOM → UTF-16 → UTF-8)
-│   └── LineEnding.swift           Dominant-EOL detect / normalize / restore
+│   └── LineEnding.swift           EOL detect / normalize / restore (per line if mixed)
 ├── Editor
 │   ├── EditorView.swift           SwiftUI shell; settings + Reader toggle
 │   ├── TextEditorView.swift       NSTextView wrapper + Coordinator
@@ -141,9 +141,23 @@ Three kinds of code say otherwise, each for a reason the compiler can check
   `String` only when a save snapshot is taken), plus metadata captured at load:
   - `encoding: FileEncoding` (default `.utf8` for new documents)
   - `lineEnding: LineEnding` (default `.lf` for new documents)
+  - `mixedLineEndings: MixedLineEndings?` — for a file that mixes styles,
+    the LF-normalized original text and each line's ending; `nil` for
+    uniform files (and new documents), which pay nothing
   - `isLossy: Bool` — true when the bytes couldn't be decoded exactly
-- **Read**: detect encoding → decode → detect dominant line ending → normalize buffer to LF.
+- **Read**: detect encoding → decode → detect dominant line ending (and,
+  when styles are mixed, record every line's) → normalize buffer to LF.
 - **Write (snapshot)**: restore original line endings → encode with original encoding.
+  - Uniform file: the dominant ending after every line.
+  - Mixed file: a line whose text is unchanged since load keeps its
+    original ending; new, edited, and moved lines get the dominant one, so
+    a save without edits is byte-identical and one edited line doesn't
+    rewrite the others. Unchanged lines are found by trimming the common
+    prefix and suffix, then diffing the middle (`CollectionDifference`
+    over interned line IDs). A middle over `MixedLineEndings.diffLimit`
+    (5,000) lines on either side skips the diff and takes the dominant
+    ending, so a file-wide rewrite can't stall the save.
+  - A last line without a newline never gains one.
 - Registered content types: `public.plain-text`, `net.daringfireball.markdown`
   and `io.toml.toml` (both imported UTIs, see Info.plist), plus `public.text`
   so the broader family (JSON, XML, …) opens via "Open With".

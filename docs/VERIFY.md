@@ -52,6 +52,10 @@ runners, and the unsigned smoke bundle).
       read-only with the notice bar, typing does nothing, and no save path
       (⌘S, autosave, Versions) writes the file (verified via CLI tests +
       smoke bundle on the dev machine; re-check under the sandbox)
+- [ ] Mixed line endings (e.g. `a\r\nb\r\nc\r\nd\ne\r\n`): edit line 1 and
+      ⌘S — only that line's ending changes (`d` keeps its LF); autosave,
+      Save As and Duplicate without edits are byte-identical
+      (regression-tested by CLI tests + `Tests/ui_smoke.sh`)
 - [ ] Focus: ⌘N then type immediately — text lands in the body; Reader →
       Esc then type — same (regression-tested by `Tests/ui_smoke.sh` on
       the dev machine)
