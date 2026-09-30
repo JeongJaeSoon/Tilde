@@ -51,6 +51,10 @@ nonisolated final class TextDocument: ReferenceFileDocument {
     let encoding: FileEncoding
     let lineEnding: LineEnding
 
+    /// Each original line's ending, for a file that mixes styles; `nil`
+    /// for uniform files, which restore `lineEnding` everywhere.
+    let mixedLineEndings: MixedLineEndings?
+
     /// True when the file's bytes could not be decoded exactly (invalid
     /// UTF-8, BOM-less UTF-16 CJK, legacy encodings): the in-memory text
     /// contains substitution characters, so writing it back would corrupt
@@ -91,6 +95,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         textStorage = NSTextStorage()
         encoding = .default
         lineEnding = .lf
+        mixedLineEndings = nil
         isLossy = false
         isMarkdown = false
     }
@@ -100,10 +105,11 @@ nonisolated final class TextDocument: ReferenceFileDocument {
             throw CocoaError(.fileReadCorruptFile)
         }
         let decoded = FileEncoding.decode(data)
-        let normalized = LineEnding.normalizeToLF(decoded.string)
+        let normalized = LineEnding.normalizeToLF(decoded.string, recordingMixed: true)
         textStorage = NSTextStorage(string: normalized.text)
         encoding = decoded.encoding
         lineEnding = normalized.lineEnding
+        mixedLineEndings = normalized.mixed
         isLossy = decoded.isLossy
         isMarkdown = configuration.contentType.conforms(to: .markdown)
     }
@@ -135,7 +141,9 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         // — a stray literal `\r\n` would corrupt into `\r\r\n` on a CRLF
         // document. Re-normalize as a cheap belt-and-braces pass.
         let normalized = LineEnding.normalizeToLF(snapshot).text
-        let data = encoding.encode(lineEnding.restore(in: normalized))
+        let restored = mixedLineEndings?.restore(in: normalized, dominant: lineEnding)
+            ?? lineEnding.restore(in: normalized)
+        let data = encoding.encode(restored)
         return FileWrapper(regularFileWithContents: data)
     }
 }
