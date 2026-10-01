@@ -272,6 +272,10 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
     private static let hrPattern = try! NSRegularExpression(pattern: "^ {0,3}(?:-{3,}|\\*{3,}|_{3,})[ \\t]*\\n?$")
     private static let quotePattern = try! NSRegularExpression(pattern: "^ {0,3}((?:>[ ]?)+)")
     private static let listPattern = try! NSRegularExpression(pattern: "^[ \\t]*([-*+]|\\d{1,9}[.)])[ \\t]+")
+    /// `[ ]` / `[x]` / `[X]` and a space, right after a list marker, with
+    /// text to follow — what Reader shows as a checkbox. Group 1 is the
+    /// box's inside: a space when open.
+    private static let taskPattern = try! NSRegularExpression(pattern: "\\[([ xX])\\] [ \\t]*(?=\\S)")
 
     /// First UTF-16 units that can begin a line-level construct.
     private static let lineTriggers: Set<unichar> = {
@@ -377,6 +381,18 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
             else if let match = Self.listPattern.firstMatch(in: lineText, range: fullLine) {
                 storage.addAttribute(.font, value: EditorTheme.listMarkerFont(size: fontSize), range: absolute(match.range(at: 1)))
                 contentStart = NSMaxRange(match.range)
+                // Task item: the box dims like other markers, and a done
+                // item's content goes quiet, as in Reader.
+                let rest = NSRange(location: contentStart, length: fullLine.length - contentStart)
+                if let task = Self.taskPattern.firstMatch(in: lineText, options: .anchored, range: rest) {
+                    let box = NSRange(location: task.range.location, length: 3)
+                    storage.addAttribute(.foregroundColor, value: EditorTheme.markerColor, range: absolute(box))
+                    contentStart = NSMaxRange(task.range)
+                    if (lineText as NSString).character(at: task.range(at: 1).location) != 0x20 {
+                        let content = NSRange(location: line.location + contentStart, length: NSMaxRange(textOnly) - line.location - contentStart)
+                        storage.addAttribute(.foregroundColor, value: EditorTheme.quoteColor, range: content)
+                    }
+                }
             }
         }
 

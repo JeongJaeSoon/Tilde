@@ -245,6 +245,7 @@ Styling is **attributes only** — the character content of the buffer is never 
 | Blockquote | `.secondaryLabelColor` | `>` dim |
 | Link | link color | brackets/URL dim |
 | List bullet / number | body | marker slightly emphasized |
+| Task list item (`- [ ]` / `- [x]`, text after the box) | body; done items `.secondaryLabelColor` | `[ ]` `[x]` dim |
 | Horizontal rule | — | `---` dim |
 | Frontmatter (line 1 `---` … `---`/`...`, empty or with a top-level `key:` line) | `.secondaryLabelColor`, no Markdown rules inside | fences dim, never an HR |
 
