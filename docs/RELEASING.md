@@ -64,11 +64,7 @@ through Xcode Organizer; automate updates later if it earns its keep).
      `swift scripts/sparkle_public_key.swift < backup-file`; it must print
      `PUBLIC_ED_KEY`.
 
-6. **Homebrew cask**: add `auto_updates true` to
-   `heyeuca/homebrew-tap/Casks/tilde.rb`, so `brew upgrade` leaves Tilde to
-   its own updater instead of both trying to replace the app.
-
-7. **Test the pipeline without publishing**: Actions → Release →
+6. **Test the pipeline without publishing**: Actions → Release →
    Run workflow. This builds, signs, notarizes, and staples, then uploads
    the DMG and its appcast as an artifact instead of creating a release.
 
@@ -113,6 +109,12 @@ The DMG build has **Tilde → Check for Updates…**, backed by
 - Checks happen only when the user picks the menu item:
   `SUEnableAutomaticChecks` and `SUAllowsAutomaticUpdates` are off
   (PRODUCT.md §29).
+- The Homebrew cask deliberately has **no** `auto_updates true`. That flag
+  makes a plain `brew upgrade` skip Tilde, and since Tilde never checks on
+  its own, Homebrew users would stay on old versions unless they remembered
+  the menu item. Without it, `brew upgrade` stays their update path; the
+  only cost is that brew may reinstall a version Sparkle already installed.
+  Revisit this if automatic checks are ever turned on.
 - The feed is `appcast.xml`, attached to each release and read from
   `releases/latest/download/appcast.xml`, so it lists only the newest
   release. Its release notes are the body of `docs/releases/vX.Y.Z-draft.md`
