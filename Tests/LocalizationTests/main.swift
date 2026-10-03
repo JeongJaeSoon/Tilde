@@ -144,6 +144,7 @@ func localizableLiterals(inSource path: String) -> [String] {
 
 let uiSources = [
     "Tilde/App/TildeApp.swift",
+    "Tilde/App/Updater.swift",
     "Tilde/Editor/EditorView.swift",
     "Tilde/Settings/SettingsView.swift",
     "Tilde/Settings/AppSettings.swift",

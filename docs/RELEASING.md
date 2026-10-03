@@ -40,9 +40,33 @@ through Xcode Organizer; automate updates later if it earns its keep).
    - On tagged releases, the workflow reads the tag and the final DMG hash,
      updates `homebrew-tap/Casks/tilde.rb`, and pushes the change.
 
-5. **Test the pipeline without publishing**: Actions → Release →
+5. **Sparkle update signing key** (in-app updates, #27)
+   - Sparkle installs an update only if it is signed with the private half
+     of an EdDSA key whose public half ships in the app. Lose the private
+     key and existing installs can never update in-app again, so back it up
+     like the Developer ID `.p12`.
+   - Generate it once, on a Mac you trust (the private key goes into your
+     login keychain):
+
+     ```bash
+     scripts/fetch_sparkle.sh
+     build/Sparkle/bin/generate_keys            # prints the public key
+     build/Sparkle/bin/generate_keys -x sparkle_private_key
+     ```
+
+   - Paste the printed public key into `PUBLIC_ED_KEY` in
+     `scripts/build_direct.sh` and commit it (it's public by design).
+   - Add the contents of `sparkle_private_key` as the Actions secret
+     `SPARKLE_ED_PRIVATE_KEY`, then delete the file.
+   - Secrets can't be read back, so keep a backup you can read (e.g. a
+     password manager). To check a backup, or to recover the public key
+     once the key is gone from the keychain, run the backup through
+     `swift scripts/sparkle_public_key.swift < backup-file`; it must print
+     `PUBLIC_ED_KEY`.
+
+6. **Test the pipeline without publishing**: Actions → Release →
    Run workflow. This builds, signs, notarizes, and staples, then uploads
-   the DMG as an artifact instead of creating a release.
+   the DMG and its appcast as an artifact instead of creating a release.
 
 ### Cutting a release
 
@@ -62,9 +86,44 @@ releases cut before this was added (v1.0.1 and earlier).
 
 ### What the pipeline does
 
-build (hardened runtime + sandbox from project settings) → codesign with
-Developer ID → `scripts/make_dmg.sh` → sign the DMG → `notarytool submit
---wait` → `stapler staple` → Gatekeeper check (`spctl`) → publish.
+`scripts/build_direct.sh` (hardened runtime + sandbox from project
+settings, plus Sparkle) → codesign Sparkle's nested code, then the app,
+with Developer ID → `scripts/make_dmg.sh` → sign the DMG → `notarytool
+submit --wait` → `stapler staple` → Gatekeeper check (`spctl`) →
+`scripts/make_appcast.sh` → publish.
+
+### In-app updates (Sparkle)
+
+The DMG build has **Tilde → Check for Updates…**, backed by
+[Sparkle](https://sparkle-project.org) (#27). The App Store build doesn't:
+
+- Sparkle isn't in the Xcode project. `scripts/build_direct.sh` fetches a
+  pinned release (`scripts/fetch_sparkle.sh`, SHA-256 checked), links it
+  through `FRAMEWORK_SEARCH_PATHS`, embeds it, and adds the `SU*` keys to
+  the built app's Info.plist. `Tilde/App/Updater.swift` compiles only
+  `#if canImport(Sparkle)`, so every other build skips it. CI checks both
+  sides: the plain build has no Sparkle, the DMG build links it.
+- The sandbox exception Sparkle needs (`mach-lookup` for
+  `co.euca.Tilde-spks` / `-spki`) lives in `Tilde/Distribution.entitlements`,
+  which only the DMG build uses.
+- Checks happen only when the user picks the menu item:
+  `SUEnableAutomaticChecks` and `SUAllowsAutomaticUpdates` are off
+  (PRODUCT.md §29).
+- The Homebrew cask deliberately has **no** `auto_updates true`. That flag
+  makes a plain `brew upgrade` skip Tilde, and since Tilde never checks on
+  its own, Homebrew users would stay on old versions unless they remembered
+  the menu item. Without it, `brew upgrade` stays their update path; the
+  only cost is that brew may reinstall a version Sparkle already installed.
+  Revisit this if automatic checks are ever turned on.
+- The feed is `appcast.xml`, attached to each release and read from
+  `releases/latest/download/appcast.xml`, so it lists only the newest
+  release. Its release notes are the body of `docs/releases/vX.Y.Z-draft.md`
+  up to `## Install`.
+- Sparkle compares `CFBundleVersion` (`CURRENT_PROJECT_VERSION`), so bump it
+  for every release, as already required for the App Store.
+- To bump Sparkle, change `SPARKLE_VERSION` and `SPARKLE_SHA256` in
+  `scripts/fetch_sparkle.sh` (the hash is listed on the GitHub release
+  asset).
 
 ## App Store
 

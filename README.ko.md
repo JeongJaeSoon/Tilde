@@ -56,6 +56,7 @@ Tilde는 IDE도, 프로젝트 워크스페이스도, 노트 데이터베이스�
 - macOS 언어 설정을 따르는 영어 / 한국어 / 일본어 / 중국어(간체) 인터페이스
 - 빠른 실행과 유휴 시 거의 0에 가까운 리소스 사용량
 - 완전한 macOS 통합: 다음으로 열기, 파일 연결, 최근 문서, 자동 저장, 버전, 전체 화면, 창 탭
+- GitHub·Homebrew 버전의 앱 내 업데이트: **Tilde → 업데이트 확인…**을 누를 때만 확인합니다 (App Store 버전은 App Store가 업데이트합니다)
 
 ### Markdown, 가볍게
 
@@ -93,6 +94,7 @@ Tilde는 모든 문서를 로컬에서 처리합니다.
 - 클라우드 저장소 없음
 - AI 기능 없음
 - 초기 릴리스에 분석(analytics) 없음
+- 네트워크 접근 없음 — GitHub·Homebrew 버전에서 직접 '업데이트 확인…'을 누를 때만 예외
 
 ## 빌드
 
@@ -110,6 +112,8 @@ open Tilde.xcodeproj
 ```
 
 이후 Xcode에서 빌드 및 실행(`⌘R`)합니다.
+
+이렇게 빌드하면 업데이터가 없는 App Store용 구성이 됩니다. GitHub·Homebrew용 빌드는 `scripts/build_direct.sh`가 Sparkle을 더해 만듭니다. 자세한 내용은 [docs/RELEASING.md](docs/RELEASING.md)를 참고하세요.
 
 ## Non-Goals (하지 않는 것)
 
