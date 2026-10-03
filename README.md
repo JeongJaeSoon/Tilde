@@ -56,6 +56,7 @@ It is **not** an IDE, a project workspace, a note database, or a Markdown author
 - Interface in English, Korean, Japanese, and Simplified Chinese, following your macOS language
 - Fast launch and near-zero idle resource usage
 - Full macOS integration: Open With, file associations, Recent Documents, Autosave, Versions, Full Screen, window tabs
+- In-app updates for the GitHub and Homebrew version: **Tilde → Check for Updates…** checks only when you ask (the App Store version is updated by the App Store)
 
 ### Markdown, done lightly
 
@@ -93,6 +94,7 @@ Tilde processes every document locally.
 - No cloud storage
 - No AI features
 - No analytics in the initial release
+- No network access, except an update check when you choose Check for Updates… (GitHub and Homebrew version)
 
 Full policy: [PRIVACY.md](PRIVACY.md)
 
@@ -112,6 +114,8 @@ open Tilde.xcodeproj
 ```
 
 Then build and run from Xcode (`⌘R`).
+
+This builds the App Store flavor, without the updater. The GitHub/Homebrew build adds Sparkle through `scripts/build_direct.sh`; see [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Non-Goals
 

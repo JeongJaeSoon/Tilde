@@ -56,6 +56,7 @@ Tilde 适合想要快速阅读或轻度编辑纯文本文件的人：
 - 跟随 macOS 语言设置的英语 / 韩语 / 日语 / 简体中文界面
 - 快速启动，空闲时资源占用几近于零
 - 完整的 macOS 集成：打开方式、文件关联、最近打开的文稿、自动保存、版本、全屏、窗口标签页
+- GitHub 与 Homebrew 版本的应用内更新：只有在你选择 **Tilde → 检查更新…** 时才会检查（App Store 版本由 App Store 负责更新）
 
 ### Markdown，点到为止
 
@@ -93,6 +94,7 @@ Tilde 在本地处理每一份文档。
 - 无云存储
 - 无 AI 功能
 - 首个版本不含任何分析统计
+- 不访问网络——仅在 GitHub 与 Homebrew 版本中由你手动选择“检查更新…”时例外
 
 ## 构建
 
@@ -110,6 +112,8 @@ open Tilde.xcodeproj
 ```
 
 然后在 Xcode 中构建并运行（`⌘R`）。
+
+这样构建的是不含更新功能的 App Store 版本配置。GitHub 与 Homebrew 版本的构建由 `scripts/build_direct.sh` 加入 Sparkle 生成，详见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 ## Non-Goals（有意不做的事）
 
