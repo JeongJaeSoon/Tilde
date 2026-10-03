@@ -35,6 +35,14 @@ jobs:
         run: |
           xcodebuild -project Tilde.xcodeproj -scheme Tilde -configuration Release \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Check the build has no Sparkle
+        # This is the build the App Store gets; Sparkle belongs only to the
+        # DMG build (scripts/build_direct.sh, #27).
+        run: |
+          if otool -L build/Build/Products/Release/Tilde.app/Contents/MacOS/Tilde | grep -q Sparkle; then
+            echo "::error::The plain Release build links Sparkle"
+            exit 1
+          fi
       - name: Zip app for artifact
         # ditto preserves the bundle structure and executable bits, which a
         # bare directory upload loses.
@@ -44,3 +52,25 @@ jobs:
         with:
           name: Tilde-unsigned
           path: Tilde.app.zip
+
+  build-direct:
+    name: Build (DMG variant with Sparkle)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+      - name: Build (Release, unsigned, with Sparkle)
+        # The updater code compiles only here, so this is what keeps it
+        # building between releases.
+        run: scripts/build_direct.sh CODE_SIGNING_ALLOWED=NO
+      - name: Check Sparkle is linked and embedded
+        run: |
+          APP=build/Build/Products/Release/Tilde.app
+          otool -L "$APP/Contents/MacOS/Tilde" | grep -q '@rpath/Sparkle.framework'
+          test -d "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
+          /usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$APP/Contents/Info.plist"

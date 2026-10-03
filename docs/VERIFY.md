@@ -94,6 +94,38 @@ runners, and the unsigned smoke bundle).
       security-scoped folder grant (product call) if this matters.
 - [ ] Large document (~1 MB+) Reader does not freeze the UI (async render)
 
+## In-app updates (DMG build only, #27)
+
+Needs two signed, notarized DMG builds with different `CURRENT_PROJECT_VERSION`
+values (e.g. from Actions → Release → Run workflow), and a test appcast that
+points at the newer one.
+
+Already exercised end to end on the dev machine (2026-10-02) with
+`scripts/build_direct.sh` copies under a test bundle ID: ad-hoc signed,
+sandboxed (with the `-spks`/`-spki` exception), a throwaway EdDSA key, and
+a localhost feed. Menu placement, no request at launch, the dialog, sandboxed
+download + install + relaunch, and "up to date" all worked. Not covered
+there: the hardened runtime (ad-hoc signatures fail its library validation,
+so the copies ran without it), Developer ID signing, notarization, and
+Gatekeeper on the downloaded update.
+
+- [ ] Tilde menu shows **Check for Updates…** right below About Tilde; the
+      App Store / plain Xcode build has no such item
+- [ ] Launching and idling makes no network requests (no automatic check,
+      no "check automatically?" prompt on the second launch)
+- [ ] With the newest version installed: Check for Updates… says you're up
+      to date
+- [ ] With the older version installed: the dialog shows the release notes
+      (Markdown rendered) and Install Update / Skip This Version, with no
+      "install automatically" checkbox (Sparkle drops Remind Me Later while
+      automatic checks are off; closing the window does the same)
+- [ ] Install Update **under the sandbox**: downloads, quits, replaces
+      `/Applications/Tilde.app`, relaunches as the new version; open
+      documents and unsaved edits come back (autosave)
+- [ ] A DMG whose signature doesn't match the appcast's `edSignature` is
+      refused
+- [ ] Localized menu item in ko / ja / zh-Hans
+
 ## Icon
 
 - [ ] Regenerate if needed: `swift scripts/gen_icon.swift <outdir>` then

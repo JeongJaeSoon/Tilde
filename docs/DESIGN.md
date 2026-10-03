@@ -41,6 +41,7 @@ TildeApp (@main)
 │                           └── MarkdownRenderer + CodeHighlighter
 ├── Settings ─── SettingsView
 └── Commands ─── View menu (Reader, Word Wrap, Line Numbers, font size ⌘+/⌘-/⌘0)
+                 + Check for Updates… (DMG build only, Sparkle)
 ```
 
 ### File layout
@@ -48,7 +49,9 @@ TildeApp (@main)
 ```text
 Tilde
 ├── App
-│   └── TildeApp.swift             Scenes + menu commands
+│   ├── TildeApp.swift             Scenes + menu commands
+│   └── Updater.swift              Sparkle updater + menu item; compiled
+│                                  only into the DMG build (RELEASING.md)
 ├── Document
 │   ├── TextDocument.swift         ReferenceFileDocument; owns the storage,
 │   │                              tracks encoding + line endings

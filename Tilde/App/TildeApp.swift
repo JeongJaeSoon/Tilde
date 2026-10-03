@@ -7,6 +7,10 @@ import SwiftUI
 
 @main
 struct TildeApp: App {
+    #if canImport(Sparkle)
+    private let updater = Updater()
+    #endif
+
     init() {
         // Launching without a document creates a blank one (PRODUCT.md §10)
         // instead of the open panel document apps show by default.
@@ -27,6 +31,9 @@ struct TildeApp: App {
             // Standard Find menu (⌘F / ⌘G / ⌥⌘F), routed to the text view's find bar.
             TextEditingCommands()
             ViewCommands()
+            #if canImport(Sparkle)
+            UpdateCommands(updater: updater)
+            #endif
         }
 
         Settings {

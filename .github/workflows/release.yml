@@ -2,9 +2,9 @@ name: Release
 
 # Cut a release by pushing a tag:  git tag v1.0.0 && git push origin v1.0.0
 # The workflow builds, signs (Developer ID), notarizes, staples, and attaches
-# the DMG to a GitHub release. `workflow_dispatch` runs the same pipeline
-# without publishing (the DMG is uploaded as an artifact instead) — useful
-# for testing the signing setup.
+# the DMG and its Sparkle appcast (in-app updates, #27) to a GitHub release.
+# `workflow_dispatch` runs the same pipeline without publishing (the DMG is
+# uploaded as an artifact instead) — useful for testing the signing setup.
 #
 # Required repository secrets (see docs/RELEASING.md):
 #   MACOS_CERT_P12       base64 of the Developer ID Application .p12
@@ -14,6 +14,7 @@ name: Release
 #   ASC_KEY_ID           the API key's Key ID
 #   ASC_ISSUER_ID        the API key's Issuer ID
 #   HOMEBREW_TAP_TOKEN   fine-grained token with write access to homebrew-tap
+#   SPARKLE_ED_PRIVATE_KEY  private EdDSA key that signs Sparkle updates
 
 on:
   push:
@@ -45,9 +46,10 @@ jobs:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: |
           missing=""
-          for v in MACOS_CERT_P12 MACOS_CERT_PASSWORD APPLE_TEAM_ID ASC_KEY_P8 ASC_KEY_ID ASC_ISSUER_ID; do
+          for v in MACOS_CERT_P12 MACOS_CERT_PASSWORD APPLE_TEAM_ID ASC_KEY_P8 ASC_KEY_ID ASC_ISSUER_ID SPARKLE_ED_PRIVATE_KEY; do
             [ -z "${!v}" ] && missing="$missing $v"
           done
           if [ -n "$missing" ]; then
@@ -74,23 +76,27 @@ jobs:
           rm /tmp/cert.p12
           security find-identity -v -p codesigning build.keychain
 
-      - name: Build and sign (Release)
+      - name: Build and sign (Release, with Sparkle)
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          xcodebuild -project Tilde.xcodeproj -scheme Tilde -configuration Release \
-            -derivedDataPath build \
+          scripts/build_direct.sh \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
-            CODE_SIGN_ENTITLEMENTS=Tilde/Distribution.entitlements \
-            ENABLE_PREVIEWS=NO \
-            build
+            CODE_SIGN_ENTITLEMENTS=Tilde/Distribution.entitlements
           APP=build/Build/Products/Release/Tilde.app
-          codesign --force --options runtime --timestamp \
-            --entitlements Tilde/Distribution.entitlements \
-            --sign "Developer ID Application" "$APP"
+          sign() { codesign --force --options runtime --timestamp --sign "Developer ID Application" "$@"; }
+          # Sparkle's nested code first, inside out, in the order Sparkle's
+          # sandboxing guide gives. Never --deep: it breaks the XPC services.
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          sign "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+          sign --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+          sign "$SPARKLE/Versions/B/Autoupdate"
+          sign "$SPARKLE/Versions/B/Updater.app"
+          sign "$SPARKLE"
+          sign --entitlements Tilde/Distribution.entitlements "$APP"
 
       - name: Verify app signature
         run: |
@@ -100,6 +106,10 @@ jobs:
           ENTITLEMENTS="$(codesign -d --entitlements :- "$APP" 2>&1 || true)"
           if echo "$ENTITLEMENTS" | grep -q 'com.apple.security.get-task-allow'; then
             echo "::error::Distribution build contains get-task-allow"
+            exit 1
+          fi
+          if ! /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$APP/Contents/Info.plist" >/dev/null 2>&1; then
+            echo "::error::No SUPublicEDKey — set PUBLIC_ED_KEY in scripts/build_direct.sh (docs/RELEASING.md)"
             exit 1
           fi
 
@@ -142,6 +152,17 @@ jobs:
           cp "$NAME" Tilde.dmg
           echo "dmg=$NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Write Sparkle appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          # Non-tag runs get a placeholder tag; their appcast is only an
+          # artifact to inspect, never published.
+          TAG="$GITHUB_REF_NAME"
+          [[ "$GITHUB_REF" == refs/tags/* ]] || TAG="dev"
+          scripts/make_appcast.sh build/Build/Products/Release/Tilde.app \
+            "${{ steps.name.outputs.dmg }}" "$TAG" appcast.xml
+
       - name: Check Homebrew tap token
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -163,10 +184,10 @@ jobs:
           fi
           NOTES="docs/releases/${GITHUB_REF_NAME}-draft.md"
           if [[ -f "$NOTES" ]]; then
-            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg \
+            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg appcast.xml \
               --title "Tilde $GITHUB_REF_NAME" --notes-file "$NOTES"
           else
-            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg \
+            gh release create "$GITHUB_REF_NAME" "${{ steps.name.outputs.dmg }}" Tilde.dmg appcast.xml \
               --title "Tilde $GITHUB_REF_NAME" --generate-notes
           fi
 
@@ -216,7 +237,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.name.outputs.dmg }}
-          path: ${{ steps.name.outputs.dmg }}
+          path: |
+            ${{ steps.name.outputs.dmg }}
+            appcast.xml
 
       - name: Clean up keychain
         if: always()
