@@ -396,6 +396,8 @@ do {
     let types = TextDocument.readableContentTypes
     expect(types.first == .plainText, "new documents still default to plain text")
     expect(types.last == .data, "public.data is the last readable type")
+    expect(TextDocument.writableContentTypes == Array(types.dropLast()),
+           "public.data is readable but not offered in the save panel")
     let unknown = UTType(filenameExtension: "tildeunknownext")!
     expect(unknown.isDynamic && unknown.conforms(to: .data), "unknown extension is a dynamic data type")
     expect(types.contains { unknown.conforms(to: $0) }, "unknown extension is readable")

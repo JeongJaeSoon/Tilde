@@ -90,9 +90,13 @@ nonisolated final class TextDocument: ReferenceFileDocument {
     /// all treated as plain text (PRODUCT.md §6). `.data` last admits files
     /// macOS can't type as text from their name (`id_ed25519`, `.gitignore`,
     /// `id_ed25519.pub`); `init(configuration:)` refuses the binary ones.
-    /// Writable types stay equal to readable so every file that opens can
-    /// also be saved back.
     static var readableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text, .data] }
+
+    /// Readable minus `.data`, which would otherwise show up as an extra
+    /// entry in the save panel's File Format menu. A file opened as
+    /// `public.data` still saves in place under its own name (checked in
+    /// the running app; see VERIFY.md "File associations").
+    static var writableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text] }
 
     /// Whether a file must be refused as binary. Only files macOS did NOT
     /// type as text are checked, so a text-typed file still always opens
