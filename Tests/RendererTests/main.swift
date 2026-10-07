@@ -177,6 +177,98 @@ do {
     expect(s.string.contains("1.\t"), "nested ordered marker present")
 }
 
+// MARK: - Task lists (heyeuca/Tilde#12)
+
+/// "Done" / "Not done" for a checkbox attachment, nil for anything else.
+func checkbox(_ s: NSAttributedString, at i: Int) -> String? {
+    (s.attribute(.attachment, at: i, effectiveRange: nil) as? NSTextAttachment)?.image?.accessibilityDescription
+}
+/// Where the rendered line holding `needle` starts — its marker.
+func lineStart(of needle: String, in s: NSAttributedString) -> Int {
+    (s.string as NSString).lineRange(for: NSRange(location: offset(of: needle, in: s), length: 0)).location
+}
+func hasCheckbox(_ s: NSAttributedString) -> Bool {
+    (0..<s.length).contains { checkbox(s, at: $0) != nil }
+}
+
+do {
+    let s = render("- [ ] Write the spec\n- [x] Ship it\n- [X] Tag it\n- plain\n")
+    expect(s.string == "\u{FFFC}\tWrite the spec\n\u{FFFC}\tShip it\n\u{FFFC}\tTag it\n•\tplain\n", "task items: a checkbox in place of the bullet, before the same tab (\(s.string.debugDescription))")
+    expect(checkbox(s, at: lineStart(of: "Write", in: s)) == "Not done", "task: open item shows an empty box")
+    expect(checkbox(s, at: lineStart(of: "Ship", in: s)) == "Done", "task: [x] shows a checked box")
+    expect(checkbox(s, at: lineStart(of: "Tag", in: s)) == "Done", "task: [X] shows a checked box")
+    expect(color(s, at: offset(of: "Write", in: s)) == NSColor.textColor, "task: open item text at full ink")
+    expect(color(s, at: offset(of: "Ship", in: s)) == EditorTheme.quoteColor, "task: done item text in quote color")
+    expect(s.attribute(.strikethroughStyle, at: offset(of: "Ship", in: s), effectiveRange: nil) == nil, "task: done item not struck through")
+    let task = paragraphStyle(s, at: offset(of: "Write", in: s))
+    let bullet = paragraphStyle(s, at: offset(of: "plain", in: s))
+    expect(task?.headIndent == bullet?.headIndent && task?.tabStops == bullet?.tabStops, "task: item keeps the bullet's hanging indent")
+}
+
+do {
+    let s = render("1. [ ] first\n2. [x] second\n")
+    expect(s.string == "\u{FFFC}\tfirst\n\u{FFFC}\tsecond\n", "task: ordered items swap the number for the box (\(s.string.debugDescription))")
+    expect(checkbox(s, at: lineStart(of: "second", in: s)) == "Done", "task: ordered done item checked")
+
+    let nested = render("- [ ] top\n  - [x] nested\n    1. [ ] deeper\n")
+    expect(checkbox(nested, at: lineStart(of: "top", in: nested)) == "Not done"
+        && checkbox(nested, at: lineStart(of: "nested", in: nested)) == "Done"
+        && checkbox(nested, at: lineStart(of: "deeper", in: nested)) == "Not done", "task: boxes at every nesting depth")
+    let top = paragraphStyle(nested, at: offset(of: "top", in: nested))?.headIndent ?? 0
+    let deeper = paragraphStyle(nested, at: offset(of: "deeper", in: nested))?.headIndent ?? 0
+    expect(deeper > top, "task: nested items indent deeper")
+    expect(color(nested, at: offset(of: "top", in: nested)) == NSColor.textColor, "task: an open parent stays at full ink under a done child")
+
+    let quoted = render("> - [x] in a quote\n")
+    expect(checkbox(quoted, at: lineStart(of: "in a quote", in: quoted)) == "Done", "task: a list inside a quote still gets boxes")
+}
+
+do {
+    // The text after the box keeps its inline styles; a done item's links
+    // keep their color so they still read as links.
+    let s = render("- [x] **bold** and [docs](https://example.com)\n- [ ]   spaced out\n")
+    let boldAt = offset(of: "bold", in: s)
+    expect(isBold(font(s, at: boldAt)) && color(s, at: boldAt) == EditorTheme.quoteColor, "task: bold in a done item stays bold, quiet")
+    expect(color(s, at: offset(of: "docs", in: s)) == EditorTheme.linkColor, "task: a done item's link keeps the link color")
+    expect(s.string.contains("\u{FFFC}\tspaced out"), "task: extra spaces after the box don't indent the text")
+}
+
+do {
+    // Only an exact `[ ] ` / `[x] ` / `[X] ` opening a list item's first
+    // paragraph is a box; everything else stays text.
+    let s = render("- [link](https://example.com) item\n- [ x] spaced\n- [] empty\n- [x]tight\n- `[ ]` code\n- [ ]\n")
+    expect(!hasCheckbox(s), "task: near-misses get no box")
+    expect(s.string == "•\tlink item\n•\t[ x] spaced\n•\t[] empty\n•\t[x]tight\n•\t[ ] code\n•\t[ ]\n", "task: near-misses keep their bullets and text (\(s.string.debugDescription))")
+    expect(color(s, at: offset(of: "link", in: s)) == EditorTheme.linkColor, "task: - [link](url) is still a link")
+
+    let second = render("- [ ] first paragraph\n\n  [ ] second paragraph\n")
+    expect(second.string.contains("[ ] second paragraph"), "task: an item's later paragraph keeps its brackets")
+    let plain = render("[ ] not in a list\n\n- > [ ] quoted in an item\n")
+    expect(!hasCheckbox(plain) && plain.string.contains("[ ] not in a list") && plain.string.contains("[ ] quoted"), "task: brackets outside a list item's own paragraph stay text")
+}
+
+do {
+    // The box leaves the line exactly as tall as a bullet's, at any size,
+    // and at large sizes stays inside the marker column.
+    func firstLineHeight(_ s: NSAttributedString) -> CGFloat {
+        let storage = NSTextStorage(attributedString: s)
+        let layout = NSLayoutManager()
+        storage.addLayoutManager(layout)
+        let container = NSTextContainer(size: NSSize(width: 600, height: 10_000))
+        layout.addTextContainer(container)
+        layout.ensureLayout(for: container)
+        return layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil).height
+    }
+    for size: CGFloat in [9, 14, 24, 36] {
+        let r = MarkdownRenderer(fontSize: size)
+        let task = r.render("- [x] item\n")
+        expect(firstLineHeight(task) == firstLineHeight(r.render("- item\n")), "task: line as tall as a bullet's at \(Int(size)) pt")
+        let box = (task.attribute(.attachment, at: 0, effectiveRange: nil) as? NSTextAttachment)?.bounds.width ?? .infinity
+        let tab = paragraphStyle(task, at: 0)?.tabStops.first?.location ?? 0
+        expect(box < tab, "task: box fits before the tab stop at \(Int(size)) pt (\(box) < \(tab))")
+    }
+}
+
 // MARK: - Blockquote
 
 do {

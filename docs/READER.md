@@ -80,6 +80,7 @@ different app.
 | Unordered list | inserted `•\t`, hanging indent via tab stop + headIndent |
 | Ordered list | inserted `N.\t`, same indent scheme; ordinals from intent |
 | Nested lists | indent per nesting depth from the intent stack |
+| Task list item | `[ ] `, `[x] `, or `[X] ` opening a list item's own first paragraph (any list, any depth) becomes a checkbox in place of the bullet or number, before the same tab stop: SF Symbols `square` / `checkmark.square`, sized to the text and centered on its cap height so the line stays exactly as tall as a bullet's, and kept inside the marker column at large sizes. Apple's parser has no task-list extension and passes the marker through as text, so it must open a plain run — `` `[ ]` ``, `[link](url)`, `[ x]`, `[]`, `[x]` with no space, and brackets in a later paragraph stay text. Done items' box and text recede to quoteColor (links keep linkColor), no strikethrough. Read-only, not clickable. The box takes a palette color, not a template tint (TextKit 1 draws template attachments black), and copies as an attachment character, like images and rules. Its image carries "Done" / "Not done" as the accessibility description (whether VoiceOver reads it is unverified — VERIFY.md). The parser drops a backslash escape before the renderer sees it, so `\[ ]` shows a box too (GitHub shows text) |
 | Blockquote | quoteColor + a quiet left bar (NSTextBlock border) |
 | Code block | codeFont + one filled NSTextBlock, tokens tinted by `CodeHighlighter` (comments/strings/numbers/keywords) |
 | Thematic break | hairline via 1-pt NSTextAttachment image spanning content width |
@@ -166,6 +167,7 @@ a full Xcode build (docs/VERIFY.md).
 - CONTINUOUS scroll sync between editor and Reader (entry position IS
   restored via fractional offset — see §4; live two-way sync is v2)
 - Live side-by-side or live-typing reader (mode only, §8)
-- Remote images, raw HTML, footnotes, task-list checkboxes (the parser
-  doesn't emit them anyway)
+- Remote images, raw HTML, footnotes (the parser doesn't emit them anyway)
+- Toggling a task-list checkbox from Reader (it is read-only; checkboxes
+  are edited as `[ ]` / `[x]` in the editor)
 - Print/PDF export from Reader (could ride on the same attributed string later)

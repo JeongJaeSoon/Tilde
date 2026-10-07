@@ -162,6 +162,46 @@ do {
     expect(color(s, at: at) == EditorTheme.markerColor, "--- horizontal rule dimmed")
 }
 
+// MARK: - Task lists (heyeuca/Tilde#12)
+
+do {
+    let text = "- [ ] open item\n- [x] done item\n1. [X] numbered done\n"
+    let s = styled(text)
+    let ns = text as NSString
+    let open = ns.range(of: "[ ]").location
+    let done = ns.range(of: "[x]").location
+    expect((0..<3).allSatisfy { color(s, at: open + $0) == EditorTheme.markerColor }, "task: [ ] dimmed like a marker")
+    expect((0..<3).allSatisfy { color(s, at: done + $0) == EditorTheme.markerColor }, "task: [x] dimmed like a marker")
+    expect(color(s, at: ns.range(of: "[X]").location) == EditorTheme.markerColor, "task: [X] after a number dimmed")
+    expect(color(s, at: ns.range(of: "open item").location) == NSColor.textColor, "task: open item content at full ink")
+    expect(color(s, at: ns.range(of: "done item").location) == EditorTheme.quoteColor, "task: done item content quiet")
+    expect(color(s, at: ns.range(of: "numbered").location) == EditorTheme.quoteColor, "task: ordered done item content quiet")
+    expect(font(s, at: 0) == EditorTheme.listMarkerFont(size: EditorTheme.defaultFontSize), "task: list marker still emphasized")
+}
+
+do {
+    // Inline rules still run after the box; a done item's links keep their color.
+    let text = "- [x] **bold** and [docs](https://example.com)\n"
+    let s = styled(text)
+    let ns = text as NSString
+    let boldAt = ns.range(of: "bold").location
+    expect(isBold(font(s, at: boldAt)) && color(s, at: boldAt) == EditorTheme.quoteColor, "task: bold in a done item stays bold, quiet")
+    expect(color(s, at: ns.range(of: "docs").location) == EditorTheme.linkColor, "task: a done item's link keeps the link color")
+}
+
+do {
+    // Same boundaries as Reader: anything but an exact box and a space,
+    // with text to follow, right after a list marker, stays text.
+    let text = "- [link](https://example.com) item\n- [ x] spaced\n- [x]tight\n- [ ]\n[ ] not a list\n"
+    let s = styled(text)
+    let ns = text as NSString
+    expect(color(s, at: ns.range(of: "link").location) == EditorTheme.linkColor, "task: - [link](url) still styled as a link")
+    expect(color(s, at: ns.range(of: "[ x]").location) == NSColor.textColor, "task: [ x] stays text")
+    expect(color(s, at: ns.range(of: "[x]tight").location) == NSColor.textColor, "task: [x] without a space stays text")
+    expect(color(s, at: ns.range(of: "[ ]\n").location) == NSColor.textColor, "task: a box with no text after it stays text, as in Reader")
+    expect(color(s, at: ns.range(of: "[ ] not").location) == NSColor.textColor, "task: [ ] outside a list stays text")
+}
+
 // MARK: - Frontmatter
 
 do {
@@ -455,6 +495,12 @@ do {
                   "---\n```\n", "key: v\n---\n", "\n---\n\n# h\n", "k:\n"]
     let mismatches = fuzzMismatches(start: "---\ntitle: x\n---\nbody\n---\nmore\n", pieces: pieces)
     expect(mismatches == 0, "fuzz: 400 frontmatter edits — incremental styling matches full restyle (\(mismatches) mismatches)")
+}
+
+do {
+    let pieces = ["- ", "1. ", "[ ] ", "[x] ", "[X]", "[", "]", " ", "x", "task\n", "\n", "**b** ", "[l](u) ", "```\n"]
+    let mismatches = fuzzMismatches(start: "- [ ] open\n- [x] done\n", pieces: pieces)
+    expect(mismatches == 0, "fuzz: 400 task-list edits — incremental styling matches full restyle (\(mismatches) mismatches)")
 }
 
 print("\n\(passed) passed, \(failed) failed")
