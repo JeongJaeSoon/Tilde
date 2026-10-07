@@ -227,12 +227,9 @@ struct ReaderView: NSViewRepresentable {
         // MARK: - Link clicks
 
         /// Routes clicked links: "+N more" and cut values unfold the metadata
-        /// header,
-        /// `#fragment` jumps to the matching rendered heading, local files
-        /// open as their own document windows, and anything with a scheme
-        /// falls through to the system default (browser, Mail, …). The
-        /// renderer has already resolved relative paths against the
-        /// document's directory.
+        /// header; everything else follows `MarkdownLink.open` — `#fragment`
+        /// jumps to the matching rendered heading. The renderer has already
+        /// resolved relative paths against the document's directory.
         func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
             guard let url = link as? URL else { return false }
 
@@ -241,23 +238,9 @@ struct ReaderView: NSViewRepresentable {
                 return true
             }
 
-            if url.scheme == nil, url.relativePath.isEmpty, let fragment = url.fragment {
-                scroll(toAnchor: fragment)
-                return true
-            }
-
-            if url.isFileURL {
-                // Strip a `file.md#section` fragment; open the file itself.
-                // Under the sandbox this succeeds only for paths the app can
-                // already read — on failure the user just hears the beep.
-                let fileOnly = URL(fileURLWithPath: url.path)
-                NSDocumentController.shared.openDocument(withContentsOf: fileOnly, display: true) { _, _, error in
-                    if error != nil { NSSound.beep() }
-                }
-                return true
-            }
-
-            return false
+            // A relative link that couldn't resolve falls through to the
+            // text view's default handling, as before.
+            return MarkdownLink.open(url) { scroll(toAnchor: $0) }
         }
 
         private func install(_ rendering: MarkdownRenderer.Rendering, generation: Int) {
@@ -305,12 +288,10 @@ struct ReaderView: NSViewRepresentable {
             }
         }
 
-        /// Jumps to the heading whose anchor slug matches `fragment`
-        /// (percent-decoded, then slugified the same way heading text is).
+        /// Jumps to the heading whose anchor slug matches `fragment`.
         private func scroll(toAnchor fragment: String) {
             guard let textView, let storage = textView.textStorage else { return }
-            let decoded = fragment.removingPercentEncoding ?? fragment
-            let target = MarkdownRenderer.anchorSlug(for: decoded)
+            let target = MarkdownLink.anchorSlug(forFragment: fragment)
             var location: Int?
             storage.enumerateAttribute(
                 MarkdownRenderer.headingAnchorKey,

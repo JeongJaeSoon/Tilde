@@ -68,6 +68,10 @@ final class EditorTextView: NSTextView {
     /// (see EditorTextView+Indent.swift).
     var indentStyle: IndentStyle = .tabs
 
+    /// The document's directory, set by the coordinator: ⌘-clicked
+    /// relative links resolve against it (see `EditorTextView+Links`).
+    var linkBaseURL: URL?
+
     /// Text height of the body font and its `lineSpacing`, set by the
     /// coordinator. `nil` leaves the caret alone.
     var caretHeight: CGFloat?

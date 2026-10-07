@@ -136,8 +136,8 @@ do {
     let korean = offset(of: "한글 제목!", in: s)
     expect(anchor(at: korean) == "한글-제목", "korean heading slug keeps letters, drops punctuation")
     expect(anchor(at: offset(of: "body", in: s)) == nil, "body text carries no anchor")
-    expect(MarkdownRenderer.anchorSlug(for: "Hello, World!") == "hello-world", "slug drops punctuation")
-    expect(MarkdownRenderer.anchorSlug(for: "already-a-slug") == "already-a-slug", "slugging is idempotent")
+    expect(MarkdownLink.anchorSlug(for: "Hello, World!") == "hello-world", "slug drops punctuation")
+    expect(MarkdownLink.anchorSlug(for: "already-a-slug") == "already-a-slug", "slugging is idempotent")
 }
 
 do {
