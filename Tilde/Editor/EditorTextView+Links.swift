@@ -107,14 +107,27 @@ extension EditorTextView {
         scrollToTop(characterIndex: location)
     }
 
-    /// Scrolls the line holding `index` to the top of the viewport.
+    /// Scrolls the line holding `index` to where the first line sits at the
+    /// top of the document: below the title bar (the scroll view's top
+    /// content inset) and the text container's top padding.
     private func scrollToTop(characterIndex index: Int) {
         guard let layoutManager = textLayoutManager,
               let contentManager = layoutManager.textContentManager,
               let location = contentManager.location(contentManager.documentRange.location, offsetBy: index)
         else { return }
-        layoutManager.ensureLayout(for: NSTextRange(location: location))
-        guard let fragment = layoutManager.textLayoutFragment(for: location) else { return }
-        scroll(NSPoint(x: 0, y: fragment.layoutFragmentFrame.minY + textContainerOrigin.y))
+        // Fragments above the target are only estimated until the viewport
+        // lays them out, so the first scroll can land off by their error;
+        // repeat until the target's frame stops moving.
+        let titleBarInset = enclosingScrollView?.contentInsets.top ?? 0
+        var lastY: CGFloat?
+        for _ in 0..<3 {
+            layoutManager.ensureLayout(for: NSTextRange(location: location))
+            guard let fragment = layoutManager.textLayoutFragment(for: location) else { return }
+            let y = fragment.layoutFragmentFrame.minY
+            if y == lastY { return }
+            lastY = y
+            scroll(NSPoint(x: 0, y: y - titleBarInset))
+            layoutManager.textViewportLayoutController.layoutViewport()
+        }
     }
 }
