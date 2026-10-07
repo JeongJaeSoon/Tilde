@@ -31,13 +31,30 @@ nonisolated enum IndentStyle: Equatable {
         var previous: Int? = 0
         var sampled = 0
 
-        // The current line's leading whitespace.
-        var first: UInt8 = 0, spaces = 0, hasTab = false
-        var atLineStart = true, isBlank = true
+        // Inside a `/*` comment opened on an earlier line.
+        var inBlockComment = false
+
+        // The current line's leading whitespace, the byte after it, and
+        // whether the line opens (`/*` first) or closes (`*/`) a comment.
+        var first: UInt8 = 0, spaces = 0, hasTab = false, lead: UInt8 = 0
+        var atLineStart = true, isBlank = true, afterLead = false
+        var opensComment = false, closesComment = false, last: UInt8 = 0
         func endLine() {
-            defer { first = 0; spaces = 0; hasTab = false; atLineStart = true; isBlank = true }
+            defer {
+                first = 0; spaces = 0; hasTab = false; lead = 0
+                atLineStart = true; isBlank = true; afterLead = false
+                opensComment = false; closesComment = false; last = 0
+            }
             guard !isBlank else { return }
             sampled += 1
+            // A block comment's ` * ` lines sit one space past its `/*` to
+            // align the stars; counting them would vote for a 1-space unit
+            // in files indented by 2 or 4.
+            if inBlockComment, lead == 0x2A, !hasTab, let previous, spaces == previous + 1 {
+                if closesComment { inBlockComment = false }
+                return
+            }
+            inBlockComment = opensComment && !closesComment
             if first == 0x09 { tabLed += 1 } else if first == 0x20 { spaceLed += 1 }
             let current: Int? = hasTab ? nil : spaces
             if let current, let previous {
@@ -53,7 +70,13 @@ nonisolated enum IndentStyle: Equatable {
                 if sampled >= sampleLineLimit { break }
                 continue
             }
-            guard atLineStart else { continue }
+            defer { last = byte }
+            guard atLineStart else {
+                if afterLead, lead == 0x2F, byte == 0x2A { opensComment = true }
+                if last == 0x2A, byte == 0x2F { closesComment = true }
+                afterLead = false
+                continue
+            }
             switch byte {
             case 0x20, 0x09:
                 if first == 0 { first = byte }
@@ -63,6 +86,8 @@ nonisolated enum IndentStyle: Equatable {
             default:
                 atLineStart = false
                 isBlank = false
+                lead = byte
+                afterLead = true
             }
         }
         if sampled < sampleLineLimit { endLine() }

@@ -394,6 +394,18 @@ do {
            "detect: nested YAML maps")
     expect(IndentStyle.detect(in: "- one\n  - two\n    - three\n- four\n") == .spaces(2), "detect: Markdown list")
     expect(IndentStyle.detect(in: "a\n    \n\t\n\t\n  b\n  c\n") == .spaces(2), "detect: blank lines ignored")
+    expect(IndentStyle.detect(in: "/*\n * c\n */\n.a {\n  color: red;\n}\n") == .spaces(2),
+           "detect: block comment in 2-space CSS")
+    expect(IndentStyle.detect(in: String(repeating: "/**\n * Doc\n */\nfunction f() {\n    return 1;\n}\n", count: 3)) == .spaces(4),
+           "detect: JSDoc in 4-space JS")
+    expect(IndentStyle.detect(in: "a\n b\n  c\n b\n") == .spaces(1), "detect: 1-space file still detected")
+    expect(IndentStyle.detect(in: "root:\n child:\n  leaf: 1\nother:\n child: 2\n") == .spaces(1),
+           "detect: 1-space file with a two-level outdent")
+    expect(IndentStyle.detect(in: "/**\n * a\n * b\n */\nint f() {\n\treturn 1;\n}\n") == .tabs,
+           "detect: top-level block comment in a tab-indented file")
+    expect(IndentStyle.detect(in: "* one\n  * two\n    * three\n* four\n") == .spaces(2), "detect: Markdown `*` list")
+    expect(IndentStyle.detect(in: "a\n * b\n * c\n") == .spaces(1), "detect: 1-space `*` list outside a comment")
+    expect(IndentStyle.detect(in: "/* a */\n * b\n * c\n") == .spaces(1), "detect: comment closed on its own line")
     expect(IndentStyle.detect(in: "a\nb\n\nc") == nil, "detect: no indented lines is nil")
     expect(IndentStyle.detect(in: "") == nil, "detect: empty is nil")
     expect(IndentStyle.detect(in: "x\n" + String(repeating: "a\n", count: 1_000) + "  b\n") == nil,
