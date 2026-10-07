@@ -441,6 +441,13 @@ do {
     expect(!refused(Data("a\u{0}b".utf8), as: .plainText), "text-typed file is never refused")
     expect(!refused(Data("a\u{0}b".utf8), as: .json), "text-family file is never refused")
     expect(refused(Data("a\u{0}b".utf8)), "data-typed file with an early NUL is refused")
+
+    // AppKit builds the alert title from the failure reason, not the description.
+    let error = TextDocument.notTextFileError as NSError
+    expect(error.localizedFailureReason == "This file isn't a text file.",
+           "binary refusal names the reason in the alert title")
+    expect(error.localizedRecoverySuggestion?.hasPrefix("Tilde opens text files only.") == true,
+           "binary refusal explains what Tilde opens")
 }
 
 print("\n\(passed) passed, \(failed) failed")

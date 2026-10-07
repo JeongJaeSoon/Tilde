@@ -101,6 +101,20 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         !contentType.conforms(to: .text) && FileEncoding.looksBinary(decoded)
     }
 
+    /// The open-error alert's title is AppKit's "The document “X” could not
+    /// be opened." followed by the failure reason; the description is not
+    /// shown, so the reason carries the message.
+    static var notTextFileError: CocoaError {
+        let reason = String(localized: "This file isn't a text file.")
+        return CocoaError(.fileReadCorruptFile, userInfo: [
+            NSLocalizedDescriptionKey: reason,
+            NSLocalizedFailureReasonErrorKey: reason,
+            NSLocalizedRecoverySuggestionErrorKey: String(
+                localized: "Tilde opens text files only. Images, PDFs, and other binary files can't be edited."
+            ),
+        ])
+    }
+
     init() {
         textStorage = NSTextStorage()
         encoding = .default
@@ -116,12 +130,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         }
         let decoded = FileEncoding.decode(data)
         if Self.isRefusedAsBinary(contentType: configuration.contentType, decoded: decoded.string) {
-            throw CocoaError(.fileReadCorruptFile, userInfo: [
-                NSLocalizedDescriptionKey: String(localized: "This file isn't a text file."),
-                NSLocalizedRecoverySuggestionErrorKey: String(
-                    localized: "Tilde opens text files only. Images, PDFs, and other binary files can't be edited."
-                ),
-            ])
+            throw Self.notTextFileError
         }
         let normalized = LineEnding.normalizeToLF(decoded.string, recordingMixed: true)
         textStorage = NSTextStorage(string: normalized.text)
