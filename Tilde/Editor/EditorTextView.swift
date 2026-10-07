@@ -64,6 +64,10 @@ final class EditorTextView: NSTextView {
         }
     }
 
+    /// What Tab inserts and ⇧Tab removes, set by the coordinator
+    /// (see EditorTextView+Indent.swift).
+    var indentStyle: IndentStyle = .tabs
+
     /// Text height of the body font and its `lineSpacing`, set by the
     /// coordinator. `nil` leaves the caret alone.
     var caretHeight: CGFloat?

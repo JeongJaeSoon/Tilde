@@ -33,6 +33,7 @@ status=0
 build_and_run DocumentTests \
     Tilde/Document/FileEncoding.swift \
     Tilde/Document/LineEnding.swift \
+    Tilde/Document/IndentStyle.swift \
     Tilde/Document/TextDocument.swift \
     Tests/DocumentTests/main.swift || status=1
 
