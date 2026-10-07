@@ -471,6 +471,18 @@ do {
     straddleBE.append(String(repeating: "b", count: 100).data(using: .utf16BigEndian)!)
     expect(!prefixLooksBinary(straddleBE) && !refused(straddleBE),
            "UTF-16 BE pair across the prefix cut opens")
+    // U+1F6D8's low surrogate (DED8) ends in a byte that reads as a high
+    // surrogate in the other byte order; the pair must still survive the cut.
+    for encoding in [String.Encoding.utf16LittleEndian, .utf16BigEndian] {
+        var lowLooksHigh = String(repeating: "a", count: 16_382).data(using: encoding)!
+        lowLooksHigh.append("\u{1F6D8}\n".data(using: encoding)!)
+        lowLooksHigh.append(String(repeating: "b", count: 100).data(using: encoding)!)
+        expect(!prefixLooksBinary(lowLooksHigh) && !refused(lowLooksHigh),
+               "UTF-16 pair ending exactly at the cut opens (\(encoding == .utf16BigEndian ? "BE" : "LE"))")
+    }
+    let noCut = Data(repeating: 0xD8, count: 40_000)
+    expect(FileEncoding.binaryCheckPrefix(of: noCut) == noCut,
+           "with no safe cut, the binary check falls back to the whole file")
     var bomLE = Data([0xFF, 0xFE])
     bomLE.append(String(repeating: "a", count: 16_382).data(using: .utf16LittleEndian)!)
     bomLE.append("😀\n".data(using: .utf16LittleEndian)!)
