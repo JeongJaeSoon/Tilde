@@ -64,7 +64,7 @@ Tilde
 │   ├── TextEditorView.swift       NSTextView wrapper + Coordinator
 │   ├── EditorTextView.swift       NSTextView subclass; unified code-block fill
 │   ├── EditorTextView+MarkdownEditing.swift
-│   │                              Typed wrap, ⌘B / ⌘I / ⌘K, URL paste
+│   │                              Typed wrap, ⌘B / ⌘I / ⌘K
 │   ├── MarkdownEditing.swift      Pure wrap / emphasis / link transforms
 │   ├── MarkdownStyler.swift       Attribute-only Markdown styling rules
 │   ├── CodeSyntaxStyler.swift     JSON/YAML/TOML keys-only highlighting
@@ -233,12 +233,13 @@ Tilde couldn't fully read.
   over a single-line selection wraps it (edge whitespace stays outside the
   markers, the inner text stays selected, so `**` nests); the Format menu's
   ⌘B / ⌘I toggle `**` / `*` (the `*` run length beside the selection says
-  what is present, so they stack to `***x***`); ⌘K makes `[text](url)` from
-  the clipboard URL; pasting an `http`/`https`/`mailto` URL over a
-  selection links it. The transforms are pure (`MarkdownEditing`); each is
-  applied as one ordinary, named undo step (`shouldChangeText` →
-  `replaceCharacters` → `didChangeText`). Text committed through an input
-  method never wraps.
+  what is present, so they stack to `***x***`; a line prefix such as
+  `* `, `1. `, `# ` or `> ` stays outside, so `* item` becomes
+  `* **item**`); ⌘K makes `[text](url)` from the clipboard URL. ⌘V
+  always pastes the clipboard as is. The transforms are pure
+  (`MarkdownEditing`); each is applied as one ordinary, named undo step
+  (`shouldChangeText` → `replaceCharacters` → `didChangeText`). Text
+  committed through an input method never wraps.
 
 ### Layout (EditorView)
 

@@ -6,8 +6,7 @@
 import Foundation
 
 /// Pure text transforms behind the editor's Markdown editing commands:
-/// wrapping the selection in a typed marker, ⌘B / ⌘I, ⌘K, and pasting a
-/// URL over a selection.
+/// wrapping the selection in a typed marker, ⌘B / ⌘I, and ⌘K.
 ///
 /// Every function takes the buffer and the selection in UTF-16 offsets (the
 /// text view's `NSRange`s) and returns one replacement, or `nil` when the
@@ -59,8 +58,11 @@ nonisolated enum MarkdownEditing {
     /// ends. The length of the `*` run beside the content decides what is
     /// present — 2 or 3 means bold, 1 or 3 means italic — so ⌘I inside
     /// `**x**` stacks to `***x***` instead of stripping one side of the bold.
-    /// An empty selection inserts the empty pair with the caret inside;
-    /// a selection spanning lines (or only whitespace) returns `nil`.
+    /// A line prefix (`#`, `>`, a list bullet or number, a task box) in the
+    /// selection stays outside the markers, so a whole `* item` line becomes
+    /// `* **item**`. An empty selection inserts the empty pair with the caret
+    /// inside; a selection spanning lines (or only whitespace or a prefix)
+    /// returns `nil`.
     static func toggleEmphasis(_ emphasis: Emphasis, in text: NSString, selection: NSRange) -> Edit? {
         let m = emphasis.markerLength
         if selection.length == 0 {
@@ -69,16 +71,25 @@ nonisolated enum MarkdownEditing {
                         selection: NSRange(location: selection.location + m, length: 0))
         }
         guard var core = trimmedSingleLine(text, selection) else { return nil }
+        let line = text.lineRange(for: core)
+
+        let prefixEnd = line.location + linePrefixLength(text, line: line)
+        if core.location < prefixEnd {
+            guard prefixEnd < NSMaxRange(core),
+                  let rest = trimmed(text, NSRange(location: prefixEnd, length: NSMaxRange(core) - prefixEnd))
+            else { return nil }
+            core = rest
+        }
 
         // Markers selected along with the text: move them out of the core.
         let insideLeading = run(of: "*", in: text, from: core.location, upTo: NSMaxRange(core))
         let insideTrailing = runBackward(of: "*", in: text, from: NSMaxRange(core), downTo: core.location)
-        if insideLeading + insideTrailing < core.length {
-            core = NSRange(location: core.location + insideLeading,
-                           length: core.length - insideLeading - insideTrailing)
+        if insideLeading + insideTrailing < core.length,
+           let inner = trimmed(text, NSRange(location: core.location + insideLeading,
+                                             length: core.length - insideLeading - insideTrailing)) {
+            core = inner
         }
 
-        let line = text.lineRange(for: core)
         let left = runBackward(of: "*", in: text, from: core.location, downTo: line.location)
         let right = run(of: "*", in: text, from: NSMaxRange(core), upTo: NSMaxRange(line))
         let markers = min(left, right)
@@ -162,12 +173,28 @@ nonisolated enum MarkdownEditing {
         guard selection.length > 0, NSMaxRange(selection) <= text.length else { return nil }
         let selected = text.substring(with: selection)
         guard selected.rangeOfCharacter(from: .newlines) == nil else { return nil }
-        var start = selection.location
-        var end = NSMaxRange(selection)
+        return trimmed(text, selection)
+    }
+
+    private static func trimmed(_ text: NSString, _ range: NSRange) -> NSRange? {
+        var start = range.location
+        var end = NSMaxRange(range)
         while start < end, isBlank(text.character(at: start)) { start += 1 }
         while end > start, isBlank(text.character(at: end - 1)) { end -= 1 }
         guard end > start else { return nil }
         return NSRange(location: start, length: end - start)
+    }
+
+    /// Block markers at the start of a line: indentation, `>` quotes, then
+    /// one heading, list bullet / number, or bullet with a task box.
+    private static let linePrefix = try! NSRegularExpression(
+        pattern: #"^[ \t]*(?:>[ \t]*)*(?:#{1,6}[ \t]+|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|\d{1,9}[.)][ \t]+)?"#
+    )
+
+    private static func linePrefixLength(_ text: NSString, line: NSRange) -> Int {
+        let lineText = text.substring(with: line)
+        return linePrefix.firstMatch(in: lineText, options: .anchored,
+                                     range: NSRange(location: 0, length: (lineText as NSString).length))?.range.length ?? 0
     }
 
     private static func isBlank(_ unit: unichar) -> Bool {

@@ -25,7 +25,7 @@ final class EditorTextView: NSTextView {
         }
     }
 
-    /// Markdown editing (typed wrap, ⌘B / ⌘I / ⌘K, URL paste) is on for
+    /// Markdown editing (typed wrap, ⌘B / ⌘I / ⌘K) is on for
     /// Markdown documents; see EditorTextView+MarkdownEditing.swift.
     var formatsMarkdown = false
 

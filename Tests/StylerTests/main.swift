@@ -503,7 +503,7 @@ do {
     expect(mismatches == 0, "fuzz: 400 task-list edits — incremental styling matches full restyle (\(mismatches) mismatches)")
 }
 
-// MARK: - Markdown editing (wrap, ⌘B / ⌘I, ⌘K, URL paste)
+// MARK: - Markdown editing (wrap, ⌘B / ⌘I, ⌘K)
 
 /// Applies a MarkdownEditing edit; returns the new text and selection.
 func applying(_ edit: MarkdownEditing.Edit?, to text: String) -> (text: String, selection: NSRange)? {
@@ -597,6 +597,39 @@ do {
     let i = applying(MarkdownEditing.toggleEmphasis(.italic, in: "ab", selection: NSRange(location: 1, length: 0)), to: "ab")
     expect(i?.text == "a**b" && i?.selection == NSRange(location: 2, length: 0), "⌘I with no selection inserts ** with the caret in the middle")
     expect(MarkdownEditing.toggleEmphasis(.bold, in: "one\ntwo", selection: NSRange(location: 1, length: 4)) == nil, "⌘B across lines returns nil (beep)")
+}
+
+do {
+    // A line prefix stays outside the markers.
+    for (line, expected) in [("* item\n", "* **item**\n"), ("- item\n", "- **item**\n"), ("1. item\n", "1. **item**\n"),
+                             ("2) item\n", "2) **item**\n"), ("# item\n", "# **item**\n"), ("> item\n", "> **item**\n"),
+                             ("- [ ] item\n", "- [ ] **item**\n"), ("  > > + [x] item\n", "  > > + [x] **item**\n")] {
+        let whole = NSRange(location: 0, length: (line as NSString).length - 1)
+        let on = applying(MarkdownEditing.toggleEmphasis(.bold, in: line as NSString, selection: whole), to: line)
+        expect(on?.text == expected && selected(on) == "item", "⌘B on the whole line \(line.debugDescription) gives \(expected.debugDescription)")
+        let onWhole = NSRange(location: 0, length: ((on?.text ?? "") as NSString).length - 1)
+        let off = on.flatMap { applying(MarkdownEditing.toggleEmphasis(.bold, in: $0.text as NSString, selection: onWhole), to: $0.text) }
+        expect(off?.text == line && selected(off) == "item", "⌘B on the whole bolded line \(expected.debugDescription) gives back the line")
+    }
+    let bullet = applying(MarkdownEditing.toggleEmphasis(.bold, in: "* item\n", selection: NSRange(location: 0, length: 6)), to: "* item\n")!
+    expect(isBold(font(styled(bullet.text), at: bullet.selection.location)), "* **item** is styled bold")
+    let italic = applying(MarkdownEditing.toggleEmphasis(.italic, in: "* item\n", selection: NSRange(location: 0, length: 6)), to: "* item\n")
+    expect(italic?.text == "* *item*\n", "⌘I on a whole * item line gives * *item*")
+    expect(MarkdownEditing.toggleEmphasis(.bold, in: "* item\n", selection: NSRange(location: 0, length: 2)) == nil,
+           "⌘B on the bullet alone returns nil (beep)")
+    let start = "**word** b\n"
+    let unbold = applying(MarkdownEditing.toggleEmphasis(.bold, in: start as NSString, selection: sel(start, "**word**")), to: start)
+    expect(unbold?.text == "word b\n", "** at the line start is a marker, not a bullet")
+    let deep = "####### item\n"
+    let notHeading = applying(MarkdownEditing.toggleEmphasis(.bold, in: deep as NSString, selection: sel(deep, "####### item")), to: deep)
+    expect(notHeading?.text == "**####### item**\n", "seven # is not a heading prefix")
+}
+
+do {
+    // Edge markers moved out of the selection don't leave a space inside the new markers.
+    let text = "foo * bar\n"
+    let r = applying(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, "* bar")), to: text)
+    expect(r?.text == "foo * **bar**\n" && selected(r) == "bar", "⌘B on \"* bar\" mid-line re-trims to bar")
 }
 
 do {

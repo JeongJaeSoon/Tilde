@@ -6,7 +6,7 @@
 import AppKit
 
 /// Markdown editing in the editor: a typed marker wraps the selection,
-/// ⌘B / ⌘I / ⌘K (the Format menu), and pasting a URL over a selection.
+/// and ⌘B / ⌘I / ⌘K (the Format menu).
 /// The transforms live in `MarkdownEditing`; this applies them as ordinary
 /// edits. Active only while `formatsMarkdown` is on and the text is editable.
 extension EditorTextView {
@@ -27,21 +27,6 @@ extension EditorTextView {
             return
         }
         super.insertText(string, replacementRange: replacementRange)
-    }
-
-    /// A URL pasted over a single-line selection links the selection.
-    /// Everything else goes through `super`, which keeps the line-ending
-    /// normalization in `readSelection(from:type:)`.
-    override func paste(_ sender: Any?) {
-        if formatsEditableMarkdown, selectedRange().length > 0,
-           let clipboard = NSPasteboard.general.string(forType: .string),
-           let url = MarkdownEditing.linkableURL(from: clipboard),
-           let storage = textStorage,
-           let edit = MarkdownEditing.link(in: storage.mutableString, selection: selectedRange(), url: url) {
-            applyMarkdownEdit(edit, actionName: String(localized: "Add Link"))
-            return
-        }
-        super.paste(sender)
     }
 
     @objc func toggleMarkdownBold(_ sender: Any?) {
