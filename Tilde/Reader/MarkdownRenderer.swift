@@ -16,8 +16,9 @@ import AppKit
 /// app.
 ///
 /// Tables and images are handled in later milestones; this milestone covers
-/// paragraphs, headings, lists (including nesting), blockquotes, code
-/// blocks, thematic breaks, links, and inline styles.
+/// paragraphs, headings, lists (including nesting and task-list
+/// checkboxes), blockquotes, code blocks, thematic breaks, links, and
+/// inline styles.
 nonisolated struct MarkdownRenderer {
     var fontSize: CGFloat = EditorTheme.defaultFontSize
 
@@ -357,6 +358,10 @@ nonisolated struct MarkdownRenderer {
         /// Markdown, so it mustn't claim a slug a body heading's
         /// `#fragment` links expect (GitHub never sees it either).
         var takesAnchor = true
+        /// True for a list item's first block when it sits directly in the
+        /// item — the only place a task-list `[ ]` / `[x]` counts. A later
+        /// paragraph of the same item, or one inside a quote in it, is text.
+        var opensListItem = false
     }
 
     private func build(from parsed: AttributedString, metadata: [MarkdownFrontmatter.Entry]) -> (text: NSAttributedString, prefixLength: Int, bodyFollows: Bool) {
@@ -364,12 +369,20 @@ nonisolated struct MarkdownRenderer {
         // presentation-intent component.
         var blocks: [Block] = []
         var previousLeafIdentity: Int?
+        // List items whose first block has gone by, innermost item per block.
+        var seenListItems: Set<Int> = []
         for run in parsed.runs {
             let text = String(parsed[run.range].characters)
             let intent = run.presentationIntent
             let leafIdentity = intent?.components.first?.identity
             if blocks.isEmpty || leafIdentity != previousLeafIdentity {
-                blocks.append(Block(intent: intent))
+                var block = Block(intent: intent)
+                let components = intent?.components ?? []
+                if let item = components.first(where: { if case .listItem = $0.kind { return true }; return false }) {
+                    let isFirst = seenListItems.insert(item.identity).inserted
+                    block.opensListItem = isFirst && components.dropFirst().first?.identity == item.identity
+                }
+                blocks.append(block)
             }
             previousLeafIdentity = leafIdentity
             blocks[blocks.count - 1].runs.append((text, run.inlinePresentationIntent, run.link, run.imageURL))
@@ -563,9 +576,24 @@ nonisolated struct MarkdownRenderer {
 
         let blockStart = result.length
 
+        // A task item's `[ ]` / `[x]` becomes its marker; the text after it
+        // starts the item.
+        var runs = block.runs
+        let taskDone = Self.taskState(of: block)
+        if taskDone != nil {
+            runs[0].text = String(runs[0].text.dropFirst(Self.taskMarkerLength).drop { $0 == " " || $0 == "\t" })
+        }
+
         // List / prefix marker.
         var markerLength = 0
-        if let ordered = listOrdered {
+        if let done = taskDone {
+            // In place of the bullet or number, before the same tab stop,
+            // so wrapped lines still align under the text.
+            let marker = NSMutableAttributedString(attributedString: checkbox(done: done))
+            marker.append(NSAttributedString(string: "\t", attributes: [.font: EditorTheme.listMarkerFont(size: fontSize)]))
+            result.append(marker)
+            markerLength = marker.length
+        } else if let ordered = listOrdered {
             let marker = ordered ? "\(listOrdinal ?? 1).\t" : "•\t"
             result.append(NSAttributedString(string: marker, attributes: [
                 .font: EditorTheme.listMarkerFont(size: fontSize),
@@ -574,9 +602,11 @@ nonisolated struct MarkdownRenderer {
             markerLength = (marker as NSString).length
         }
 
-        // Body runs with inline styling.
-        for run in block.runs {
-            result.append(inlineAttributed(run, baseFont: baseFont))
+        // Body runs with inline styling. A done item's text recedes so the
+        // open ones stand out; its links keep their color.
+        let ink = taskDone == true ? EditorTheme.quoteColor : NSColor.textColor
+        for run in runs {
+            result.append(inlineAttributed(run, baseFont: baseFont, color: ink))
         }
         result.append(NSAttributedString(string: "\n"))
 
@@ -625,6 +655,65 @@ nonisolated struct MarkdownRenderer {
             result.addAttribute(Self.headingAnchorKey, value: slug, range: blockRange)
         }
         _ = markerLength
+    }
+
+    // MARK: - Task lists
+
+    /// `[ ] `, `[x] `, and `[X] ` are all four characters.
+    private static let taskMarkerLength = 4
+
+    /// Whether a task item is done, from the `[ ] ` / `[x] ` / `[X] ` that
+    /// opens its first paragraph, or nil for any other block. Apple's
+    /// parser has no task-list extension and hands the marker through as
+    /// text, so it must open a plain run: `` `[ ]` `` and `[link](url)`
+    /// stay what they are, and so do `[ x]`, `[]`, and `[x]` with no space.
+    private static func taskState(of block: Block) -> Bool? {
+        guard block.opensListItem,
+              case .paragraph = block.intent?.components.first?.kind,
+              let first = block.runs.first,
+              first.inline == nil, first.link == nil, first.image == nil
+        else { return nil }
+        if first.text.hasPrefix("[ ] ") { return false }
+        if first.text.hasPrefix("[x] ") || first.text.hasPrefix("[X] ") { return true }
+        return nil
+    }
+
+    /// Room kept between a checkbox and its item's text at large sizes,
+    /// where the box would otherwise outgrow the marker column.
+    private static let checkboxGap: CGFloat = 5
+
+    /// The checkbox in place of a task item's bullet: SF Symbols' square,
+    /// checked when done, in the bullet's ink or — done — the quote color.
+    /// It takes the text's size and sits centered on the cap height, so the
+    /// line is exactly as tall as a bullet's; at large sizes it stays
+    /// inside the marker column so the text still starts at the tab stop.
+    /// Like images and rules, it copies as an attachment character.
+    private func checkbox(done: Bool) -> NSAttributedString {
+        let color = done ? EditorTheme.quoteColor : NSColor.textColor
+        let markerFont = EditorTheme.listMarkerFont(size: fontSize)
+        // A palette color, not a template tint: TextKit 1 draws template
+        // attachments black, unreadable in dark mode.
+        let configuration = NSImage.SymbolConfiguration(pointSize: fontSize, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
+        guard let image = NSImage(
+            systemSymbolName: done ? "checkmark.square" : "square",
+            accessibilityDescription: done ? String(localized: "Done") : String(localized: "Not done")
+        )?.withSymbolConfiguration(configuration) else {
+            return NSAttributedString(string: done ? "☑" : "☐", attributes: [.font: markerFont, .foregroundColor: color])
+        }
+
+        var size = image.size
+        let maxWidth = indentUnit - Self.checkboxGap
+        if size.width > maxWidth {
+            size = NSSize(width: maxWidth, height: (size.height * maxWidth / size.width).rounded())
+        }
+        let capHeight = EditorTheme.bodyFont(monospaced: false, size: fontSize).capHeight
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = NSRect(x: 0, y: ((capHeight - size.height) / 2).rounded(), width: size.width, height: size.height)
+        let box = NSMutableAttributedString(attachment: attachment)
+        box.addAttribute(.font, value: markerFont, range: NSRange(location: 0, length: box.length))
+        return box
     }
 
     private func appendCodeBlock(_ block: Block, language: String?, to result: NSMutableAttributedString) {
@@ -699,7 +788,8 @@ nonisolated struct MarkdownRenderer {
 
     private func inlineAttributed(
         _ run: (text: String, inline: InlinePresentationIntent?, link: URL?, image: URL?),
-        baseFont: NSFont
+        baseFont: NSFont,
+        color: NSColor = .textColor
     ) -> NSAttributedString {
         if let image = run.image {
             return imageAttributed(altText: run.text, url: image)
@@ -724,7 +814,7 @@ nonisolated struct MarkdownRenderer {
             attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
             attributes[.link] = resolvedLink(link)
         } else {
-            attributes[.foregroundColor] = NSColor.textColor
+            attributes[.foregroundColor] = color
         }
 
         return NSAttributedString(string: run.text, attributes: attributes)
