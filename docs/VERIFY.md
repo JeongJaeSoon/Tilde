@@ -88,6 +88,15 @@ runners, and the unsigned smoke bundle).
       paths — on denial the click just beeps); `#fragment` links scroll to
       the matching heading
 - [ ] Tables render with borders and column alignment
+- [ ] Task lists: `- [ ]` / `- [x]` show an empty / checked box in place of
+      the bullet, done items gray, in light and dark mode and across a live
+      appearance switch while Reader is open; the boxes don't react to
+      clicks. Check what VoiceOver says for a box — each carries "Done" /
+      "Not done" as its image description, but an in-process accessibility
+      probe found NSTextView doesn't expose attachments as elements, so it
+      may read nothing useful (layout, colors, and boundaries are covered
+      by `RendererTests` / `StylerTests`; the live switch and VoiceOver are
+      not)
 - [ ] **Sandbox image behavior** (unverifiable on the unsandboxed smoke
       bundle): a sibling `./image.png` is blocked by the sandbox and should
       show the alt-text fallback, NOT the image. Decide whether to add a
