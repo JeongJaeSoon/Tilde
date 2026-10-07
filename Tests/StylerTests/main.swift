@@ -238,6 +238,11 @@ do {
     expect(line("doc") == nil, "fragment: frontmatter is not a heading")
     expect(line("missing") == nil, "fragment: no match")
     expect(MarkdownStyler.headingLocation(forFragment: "Two%20Words", in: "# Two Words\n") == 0, "fragment: percent-decoded")
+    // Heading text resolves as Reader parses it, not as raw source.
+    let parsed = "# Fish &amp; Chips\n## __Bold__ name\n" as NSString
+    expect(MarkdownStyler.headingLocation(forFragment: "fish--chips", in: parsed) == 0, "fragment: entities decoded as in Reader")
+    expect(MarkdownStyler.headingLocation(forFragment: "bold-name", in: parsed) == parsed.range(of: "## __Bold__").location,
+           "fragment: emphasis markers dropped as in Reader")
 }
 
 do {

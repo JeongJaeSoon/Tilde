@@ -21,15 +21,12 @@ extension MarkdownStyler {
     }
 
     private static let atxHeadingPattern = try! NSRegularExpression(pattern: "^ {0,3}#{1,6}(?:[ \\t]+|$)")
-    private static let closingHashesPattern = try! NSRegularExpression(pattern: "(?:^|[ \\t]+)#+[ \\t]*$")
-    private static let inlineLinkPattern = try! NSRegularExpression(pattern: "!?\\[([^\\]\\n]*)\\]\\([^)\\n]*\\)")
     private static let fencePattern = try! NSRegularExpression(pattern: "^ {0,3}(`{3,}|~{3,})")
 
     /// Where the `#fragment` heading starts in `string`: ATX headings
     /// outside fenced code and frontmatter are slugged in order, duplicates
     /// taking GitHub's `-1`, `-2`… suffixes as in Reader, and the first
-    /// whose slug matches wins. Link syntax in a heading dissolves to its
-    /// text first, as Reader renders it.
+    /// whose slug matches wins.
     static func headingLocation(forFragment fragment: String, in string: NSString) -> Int? {
         let target = MarkdownLink.anchorSlug(forFragment: fragment)
         let bodyStart = MarkdownFrontmatter.range(in: string).map(NSMaxRange) ?? 0
@@ -62,20 +59,22 @@ extension MarkdownStyler {
             }
             if openFence != nil { continue }
 
-            guard let marker = atxHeadingPattern.firstMatch(in: lineText, range: whole) else { continue }
-            var title = (lineText as NSString).substring(from: NSMaxRange(marker.range))
-            title = closingHashesPattern.stringByReplacingMatches(
-                in: title, range: NSRange(location: 0, length: (title as NSString).length), withTemplate: ""
-            )
-            title = inlineLinkPattern.stringByReplacingMatches(
-                in: title, range: NSRange(location: 0, length: (title as NSString).length), withTemplate: "$1"
-            )
-            let slug = MarkdownLink.uniqueAnchor(
-                MarkdownLink.anchorSlug(for: title.trimmingCharacters(in: .whitespaces)),
-                used: &used
-            )
+            guard atxHeadingPattern.firstMatch(in: lineText, range: whole) != nil else { continue }
+            let slug = MarkdownLink.uniqueAnchor(MarkdownLink.anchorSlug(for: headingText(lineText)), used: &used)
             if slug == target { return line.location }
         }
         return nil
+    }
+
+    /// The heading's text as Reader slugs it: parsed with Reader's options,
+    /// so closing `#`s, links, emphasis, and entities resolve the same way.
+    private static func headingText(_ line: String) -> String {
+        let options = AttributedString.MarkdownParsingOptions(
+            allowsExtendedAttributes: true,
+            interpretedSyntax: .full,
+            failurePolicy: .returnPartiallyParsedIfPossible
+        )
+        guard let parsed = try? AttributedString(markdown: line, options: options) else { return line }
+        return String(parsed.characters)
     }
 }
