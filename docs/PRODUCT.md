@@ -622,6 +622,9 @@ Follow macOS conventions.
 | Find | `⌘F` |
 | Find Next | `⌘G` |
 | Find Previous | `⌘⇧G` |
+| Bold (Markdown) | `⌘B` |
+| Italic (Markdown) | `⌘I` |
+| Add Link (Markdown) | `⌘K` |
 | Preferences | `⌘,` |
 | Increase Font | `⌘+` |
 | Decrease Font | `⌘-` |

@@ -80,6 +80,9 @@ Tilde follows macOS conventions.
 | Find Previous | `⌘⇧G` |
 | Find & Replace | `⌥⌘F` |
 | Reader | `⌘⇧R` |
+| Bold (Markdown) | `⌘B` |
+| Italic (Markdown) | `⌘I` |
+| Add Link (Markdown) | `⌘K` |
 | Preferences | `⌘,` |
 | Increase Font | `⌘+` |
 | Decrease Font | `⌘-` |

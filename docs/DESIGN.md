@@ -41,6 +41,7 @@ TildeApp (@main)
 │                           └── MarkdownRenderer + CodeHighlighter
 ├── Settings ─── SettingsView
 └── Commands ─── View menu (Reader, Word Wrap, Line Numbers, font size ⌘+/⌘-/⌘0)
+                 + Format menu (Bold ⌘B, Italic ⌘I, Add Link… ⌘K; Markdown only)
                  + Check for Updates… (DMG build only, Sparkle)
 ```
 
@@ -50,6 +51,7 @@ TildeApp (@main)
 Tilde
 ├── App
 │   ├── TildeApp.swift             Scenes + menu commands
+│   ├── FormatCommands.swift       Format menu (⌘B / ⌘I / ⌘K)
 │   └── Updater.swift              Sparkle updater + menu item; compiled
 │                                  only into the DMG build (RELEASING.md)
 ├── Document
@@ -61,6 +63,9 @@ Tilde
 │   ├── EditorView.swift           SwiftUI shell; settings + Reader toggle
 │   ├── TextEditorView.swift       NSTextView wrapper + Coordinator
 │   ├── EditorTextView.swift       NSTextView subclass; unified code-block fill
+│   ├── EditorTextView+MarkdownEditing.swift
+│   │                              Typed wrap, ⌘B / ⌘I / ⌘K, URL paste
+│   ├── MarkdownEditing.swift      Pure wrap / emphasis / link transforms
 │   ├── MarkdownStyler.swift       Attribute-only Markdown styling rules
 │   ├── CodeSyntaxStyler.swift     JSON/YAML/TOML keys-only highlighting
 │   ├── LineNumberRulerView.swift  Adaptive-width gutter (off by default)
@@ -223,6 +228,17 @@ Tilde couldn't fully read.
   responder when the window still holds it (a fresh document window parks
   focus on itself — typing went nowhere until a click); Reader exit hands
   focus back through `EditorScrollBridge.focusEditor`.
+- Markdown editing (Markdown documents, editable, editor only — whatever
+  the Markdown Styling setting): typing `*` `_` `` ` `` `~` `[` `(` `"`
+  over a single-line selection wraps it (edge whitespace stays outside the
+  markers, the inner text stays selected, so `**` nests); the Format menu's
+  ⌘B / ⌘I toggle `**` / `*` (the `*` run length beside the selection says
+  what is present, so they stack to `***x***`); ⌘K makes `[text](url)` from
+  the clipboard URL; pasting an `http`/`https`/`mailto` URL over a
+  selection links it. The transforms are pure (`MarkdownEditing`); each is
+  applied as one ordinary, named undo step (`shouldChangeText` →
+  `replaceCharacters` → `didChangeText`). Text committed through an input
+  method never wraps.
 
 ### Layout (EditorView)
 
