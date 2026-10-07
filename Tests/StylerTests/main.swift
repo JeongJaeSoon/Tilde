@@ -633,6 +633,27 @@ do {
 }
 
 do {
+    // Edge markers of two separate spans are not one pair around the selection.
+    for text in ["**one** and **two**\n", "**one**, **two**\n", "*one* and *two*\n"] {
+        let whole = NSRange(location: 0, length: (text as NSString).length - 1)
+        expect(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: whole) == nil,
+               "⌘B on all of \(text.debugDescription) returns nil instead of breaking both spans")
+    }
+    let inner = "**one** and **two**\n"
+    expect(MarkdownEditing.toggleEmphasis(.bold, in: inner as NSString, selection: sel(inner, "one** and **two")) == nil,
+           "⌘B inside the outer markers of two spans returns nil")
+    let nested = "a **x *y* z** b\n"
+    let unbold = applying(MarkdownEditing.toggleEmphasis(.bold, in: nested as NSString, selection: sel(nested, "x *y* z")), to: nested)
+    expect(unbold?.text == "a x *y* z b\n", "⌘B removes bold around a nested italic span")
+    let outer = "*a **b** c*\n"
+    let unitalic = applying(MarkdownEditing.toggleEmphasis(.italic, in: outer as NSString, selection: sel(outer, "*a **b** c*")), to: outer)
+    expect(unitalic?.text == "a **b** c\n", "⌘I removes italic around a nested bold span")
+    let math = "**2 * 3**\n"
+    let plain = applying(MarkdownEditing.toggleEmphasis(.bold, in: math as NSString, selection: sel(math, "2 * 3")), to: math)
+    expect(plain?.text == "2 * 3\n", "a * between spaces doesn't count as a marker")
+}
+
+do {
     let text = "see docs now"
     let full = applying(MarkdownEditing.link(in: text as NSString, selection: sel(text, "docs"), url: "https://example.com"), to: text)
     expect(full?.text == "see [docs](https://example.com) now", "⌘K with a URL builds [text](url)")

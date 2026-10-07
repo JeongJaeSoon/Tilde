@@ -62,7 +62,8 @@ nonisolated enum MarkdownEditing {
     /// selection stays outside the markers, so a whole `* item` line becomes
     /// `* **item**`. An empty selection inserts the empty pair with the caret
     /// inside; a selection spanning lines (or only whitespace or a prefix)
-    /// returns `nil`.
+    /// returns `nil`, and so does a core whose own `*` runs close the
+    /// markers around it early.
     static func toggleEmphasis(_ emphasis: Emphasis, in text: NSString, selection: NSRange) -> Edit? {
         let m = emphasis.markerLength
         if selection.length == 0 {
@@ -93,6 +94,8 @@ nonisolated enum MarkdownEditing {
         let left = runBackward(of: "*", in: text, from: core.location, downTo: line.location)
         let right = run(of: "*", in: text, from: NSMaxRange(core), upTo: NSMaxRange(line))
         let markers = min(left, right)
+        // `**one** and **two**`: the edge markers belong to two spans, not one around the core.
+        if markers > 0, !innerRunsBalance(text, core) { return nil }
 
         let present: Bool
         switch emphasis {
@@ -195,6 +198,34 @@ nonisolated enum MarkdownEditing {
         let lineText = text.substring(with: line)
         return linePrefix.firstMatch(in: lineText, options: .anchored,
                                      range: NSRange(location: 0, length: (lineText as NSString).length))?.range.length ?? 0
+    }
+
+    /// Whether every `*` run in `range` that opens a span is closed by a
+    /// later one. A run counts as opening when text follows it and a blank,
+    /// punctuation, or the range start comes before; closing is the mirror.
+    /// Intraword runs (`a**b`) and runs between blanks (`2 * 3`) don't count.
+    private static func innerRunsBalance(_ text: NSString, _ range: NSRange) -> Bool {
+        let star = Character("*").utf16.first!
+        func isBoundary(_ i: Int) -> Bool {
+            guard i >= range.location, i < NSMaxRange(range) else { return true }
+            let unit = text.character(at: i)
+            return isBlank(unit) || (unit < 0x80 && ispunct(Int32(unit)) != 0)
+        }
+        var open = 0
+        var i = range.location
+        while i < NSMaxRange(range) {
+            guard text.character(at: i) == star else { i += 1; continue }
+            let length = run(of: "*", in: text, from: i, upTo: NSMaxRange(range))
+            let before = i - 1, after = i + length
+            let opens = !isBoundary(after) && isBoundary(before)
+            let closes = !isBoundary(before) && isBoundary(after)
+            if opens { open += 1 } else if closes {
+                if open == 0 { return false }
+                open -= 1
+            }
+            i = after
+        }
+        return open == 0
     }
 
     private static func isBlank(_ unit: unichar) -> Bool {
