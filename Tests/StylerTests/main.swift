@@ -240,6 +240,38 @@ do {
     expect(MarkdownStyler.headingLocation(forFragment: "Two%20Words", in: "# Two Words\n") == 0, "fragment: percent-decoded")
 }
 
+do {
+    let text = """
+    ## Install
+
+    - Build it:
+      ```sh
+      # Install
+      ```
+
+    ~~~sh
+    # Usage
+    ```
+    # Still code
+    ~~~
+
+    ````
+    ```
+    # Inside four
+    ````
+
+    ``` `span` ```
+    ## Usage
+
+    """
+    let ns = text as NSString
+    func line(_ fragment: String) -> Int? { MarkdownStyler.headingLocation(forFragment: fragment, in: ns) }
+    expect(line("install-1") == nil, "fragment: # comment in an indented fence is skipped")
+    expect(line("usage") == ns.range(of: "## Usage").location, "fragment: # comment in a ~~~ fence is skipped")
+    expect(line("still-code") == nil, "fragment: a ``` line does not close a ~~~ fence")
+    expect(line("inside-four") == nil, "fragment: a shorter fence does not close a longer one")
+}
+
 // MARK: - Blockquote, list, HR
 
 do {
