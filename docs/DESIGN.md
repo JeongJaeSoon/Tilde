@@ -164,6 +164,15 @@ Three kinds of code say otherwise, each for a reason the compiler can check
 - Registered content types: `public.plain-text`, `net.daringfireball.markdown`
   and `io.toml.toml` (both imported UTIs, see Info.plist), plus `public.text`
   so the broader family (JSON, XML, …) opens via "Open With".
+- `public.data` at `Alternate` rank, last in `readableContentTypes`, for
+  files macOS can't type from their name: no extension (`id_ed25519`,
+  `.gitignore`, `Dockerfile` → `public.data`) or an unknown one
+  (`.pub`, `.env` → `dyn.*`). A type declaration can only match an
+  extension, so this is the only way in for them. Binary guard: when the
+  opened type doesn't conform to `public.text` and the decoded text has a
+  NUL in its first 8,000 characters (git's heuristic,
+  `FileEncoding.looksBinary`), `init(configuration:)` throws a "not a text
+  file" error. Text-typed files skip the guard.
 - Markdown-ness for styling/Reader follows the LIVE file URL
   (`TextDocument.isMarkdown(openedAsMarkdown:fileURL:)`): the current
   extension wins, so Save As between `.md` and `.txt`/`.json` switches

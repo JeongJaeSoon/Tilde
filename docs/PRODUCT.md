@@ -211,6 +211,19 @@ Examples:
 .gitignore
 ```
 
+Files with no extension, or one macOS doesn't know, open the same way as
+long as their contents are text:
+
+```text
+id_ed25519
+id_ed25519.pub
+config
+Dockerfile
+```
+
+They open as plain text, and saving keeps the name as is. A file whose
+contents aren't text (an image, a PDF) is refused with a short alert.
+
 Tilde does not provide dedicated IDE features for these formats.
 
 They are all treated as **plain text**.

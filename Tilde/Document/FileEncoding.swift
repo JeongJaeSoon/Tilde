@@ -85,6 +85,16 @@ nonisolated struct FileEncoding: Equatable {
         return (String(decoding: data, as: UTF8.self), FileEncoding(base: .utf8, hasBOM: false), true)
     }
 
+    // MARK: - Binary detection
+
+    /// git's binary heuristic, applied to the DECODED text: a NUL in the
+    /// first 8,000 characters means the bytes aren't text. Checking after
+    /// decoding keeps BOM-less UTF-16 text, whose raw bytes are full of
+    /// NULs, on the text side.
+    static func looksBinary(_ string: String) -> Bool {
+        string.unicodeScalars.prefix(8000).contains("\0")
+    }
+
     // MARK: - Encoding
 
     func encode(_ string: String) -> Data {

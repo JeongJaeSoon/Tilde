@@ -3,6 +3,7 @@
 // no XCTest, so the suite runs on machines with only the Command Line Tools.
 
 import Foundation
+import UniformTypeIdentifiers
 
 var passed = 0
 var failed = 0
@@ -380,6 +381,66 @@ do {
     expect(TextDocument.isMarkdown(openedAsMarkdown: true,
                                    fileURL: URL(fileURLWithPath: "/tmp/b.MARKDOWN")) == true,
            "markdown extension match is case-insensitive")
+}
+
+// MARK: - Files macOS doesn't type as text (#29)
+
+// Extension-less names and dotfiles are typed public.data, unknown
+// extensions dyn.*; both must reach the document and open as plain text
+// unless their decoded bytes look binary.
+func refused(_ data: Data, as type: UTType = .data) -> Bool {
+    TextDocument.isRefusedAsBinary(contentType: type, decoded: FileEncoding.decode(data).string)
+}
+
+do {
+    let types = TextDocument.readableContentTypes
+    expect(types.first == .plainText, "new documents still default to plain text")
+    expect(types.last == .data, "public.data is the last readable type")
+    let unknown = UTType(filenameExtension: "tildeunknownext")!
+    expect(unknown.isDynamic && unknown.conforms(to: .data), "unknown extension is a dynamic data type")
+    expect(types.contains { unknown.conforms(to: $0) }, "unknown extension is readable")
+    expect(!unknown.conforms(to: .markdown) && !UTType.data.conforms(to: .markdown),
+           "data types never open as markdown")
+    expect(TextDocument.isMarkdown(openedAsMarkdown: UTType.data.conforms(to: .markdown),
+                                   fileURL: URL(fileURLWithPath: "/tmp/id_ed25519")) == false,
+           "extension-less data file opens as plain text")
+}
+
+do {
+    let pem = """
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+        -----END OPENSSH PRIVATE KEY-----
+
+        """
+    expect(!refused(Data(pem.utf8)), "PEM private key opens")
+    let pub = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl user@host\n"
+    expect(!refused(Data(pub.utf8)), "OpenSSH public key opens")
+    expect(!refused(Data(".DS_Store\nbuild/\n*.xcuserstate\n".utf8)), ".gitignore body opens")
+    expect(!refused(Data("API_KEY=secret\n".utf8)), ".env body opens")
+    let utf16 = "KEY=value\nOTHER=1\n"
+    expect(!refused(utf16.data(using: .utf16LittleEndian)!), "BOM-less UTF-16 LE opens")
+    expect(!refused(utf16.data(using: .utf16BigEndian)!), "BOM-less UTF-16 BE opens")
+    expect(!refused(Data()), "empty file opens")
+
+    let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+                    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+                    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06])
+    expect(refused(png), "PNG header is refused")
+    expect(refused(png, as: .png), "PNG typed as image is refused")
+    var pdf = Data("%PDF-1.7\n%\u{E2}\u{E3}\u{CF}\u{D3}\n1 0 obj\n<< /Length 8 /Filter /FlateDecode >>\nstream\n".utf8)
+    pdf.append(contentsOf: [0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01])
+    expect(refused(pdf, as: .pdf), "PDF with a binary stream is refused")
+    expect(refused(Data(count: 4096)), "all-zero file is refused")
+
+    var lateNUL = Data(repeating: 0x61, count: 9000)
+    lateNUL.append(0)
+    expect(!refused(lateNUL), "NUL past the first 8,000 characters doesn't refuse")
+
+    // Text-typed files skip the guard: a .txt with a NUL still opens.
+    expect(!refused(Data("a\u{0}b".utf8), as: .plainText), "text-typed file is never refused")
+    expect(!refused(Data("a\u{0}b".utf8), as: .json), "text-family file is never refused")
+    expect(refused(Data("a\u{0}b".utf8)), "data-typed file with an early NUL is refused")
 }
 
 print("\n\(passed) passed, \(failed) failed")

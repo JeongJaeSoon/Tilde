@@ -87,9 +87,19 @@ nonisolated final class TextDocument: ReferenceFileDocument {
 
     /// `.plainText` first: new documents default to `.txt` in the save panel.
     /// `.text` admits the broader family (JSON, YAML, XML, …) via Open With —
-    /// all treated as plain text (PRODUCT.md §6). Writable types stay equal
-    /// to readable so every file that opens can also be saved back.
-    static var readableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text] }
+    /// all treated as plain text (PRODUCT.md §6). `.data` last admits files
+    /// macOS can't type as text from their name (`id_ed25519`, `.gitignore`,
+    /// `id_ed25519.pub`); `init(configuration:)` refuses the binary ones.
+    /// Writable types stay equal to readable so every file that opens can
+    /// also be saved back.
+    static var readableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text, .data] }
+
+    /// Whether a file must be refused as binary. Only files macOS did NOT
+    /// type as text are checked, so a text-typed file still always opens
+    /// (FileEncoding's "never refuse a text file").
+    static func isRefusedAsBinary(contentType: UTType, decoded: String) -> Bool {
+        !contentType.conforms(to: .text) && FileEncoding.looksBinary(decoded)
+    }
 
     init() {
         textStorage = NSTextStorage()
@@ -105,6 +115,14 @@ nonisolated final class TextDocument: ReferenceFileDocument {
             throw CocoaError(.fileReadCorruptFile)
         }
         let decoded = FileEncoding.decode(data)
+        if Self.isRefusedAsBinary(contentType: configuration.contentType, decoded: decoded.string) {
+            throw CocoaError(.fileReadCorruptFile, userInfo: [
+                NSLocalizedDescriptionKey: String(localized: "This file isn't a text file."),
+                NSLocalizedRecoverySuggestionErrorKey: String(
+                    localized: "Tilde opens text files only. Images, PDFs, and other binary files can't be edited."
+                ),
+            ])
+        }
         let normalized = LineEnding.normalizeToLF(decoded.string, recordingMixed: true)
         textStorage = NSTextStorage(string: normalized.text)
         encoding = decoded.encoding

@@ -57,6 +57,25 @@
 				<string>public.text</string>
 			</array>
 		</dict>
+		<dict>
+			<!-- Files with no extension (id_ed25519, .gitignore, Dockerfile)
+			     or an unknown one (.pub, .env) are typed public.data or dyn.*,
+			     which no type declaration can match by name. Claiming
+			     public.data at Alternate rank lets them reach Tilde via Open
+			     With, the open panel, and Dock drags without making Tilde the
+			     default app for anything; TextDocument refuses ones whose bytes
+			     aren't text (DESIGN.md §3). -->
+			<key>CFBundleTypeName</key>
+			<string>Other Text File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
 	</array>
 	<key>UTImportedTypeDeclarations</key>
 	<array>

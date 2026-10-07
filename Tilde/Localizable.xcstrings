@@ -464,6 +464,28 @@
         }
       }
     },
+    "Tilde opens text files only. Images, PDFs, and other binary files can't be edited." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilde で開けるのはテキストファイルだけです。画像、PDF などのバイナリファイルは編集できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilde는 텍스트 파일만 열 수 있습니다. 이미지, PDF 등 바이너리 파일은 편집할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilde 只能打开文本文件。图像、PDF 等二进制文件无法编辑。"
+          }
+        }
+      }
+    },
     "The document is shown read-only to protect the original file. Copy text out of it, or convert the file to UTF-8 with another tool." : {
       "localizations" : {
         "ja" : {
@@ -482,6 +504,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "为保护原始文件，文稿以只读方式显示。请从中复制文本，或使用其他工具将文件转换为 UTF-8。"
+          }
+        }
+      }
+    },
+    "This file isn't a text file." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このファイルはテキストファイルではありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 파일은 텍스트 파일이 아닙니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此文件不是文本文件。"
           }
         }
       }
