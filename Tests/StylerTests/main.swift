@@ -160,6 +160,15 @@ do {
 }
 
 do {
+    // The link regex stops at the image (#38), so a badge must not carry the image URL.
+    let text = "[![CI](https://img.shields.io/b.svg)](https://github.com/x/actions)\n"
+    let s = styled(text)
+    let ns = text as NSString
+    expect(MarkdownStyler.linkTarget(at: ns.range(of: "CI").location, in: s) == nil, "link detection: badge alt text is not tagged with the image URL")
+    expect(MarkdownStyler.linkTarget(at: ns.range(of: "actions").location, in: s) == nil, "link detection: badge outer URL not tagged either")
+}
+
+do {
     let fenced = styled("```\n[a](b.md)\n```\n")
     expect(MarkdownStyler.linkTarget(at: 5, in: fenced) == nil, "link detection: not inside a fenced code block")
     let front = styled("---\nurl: [a](b.md)\n---\nbody\n")

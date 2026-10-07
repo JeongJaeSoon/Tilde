@@ -466,8 +466,11 @@ final class MarkdownStyler: NSObject, @MainActor SyntaxHighlighting {
             guard let match, isFree(match.range) else { return }
             storage.addAttribute(.foregroundColor, value: EditorTheme.markerColor, range: absolute(match.range))
             storage.addAttribute(.foregroundColor, value: EditorTheme.linkColor, range: absolute(match.range(at: 1)))
-            // Tag the whole link (not an image) for ⌘-click.
-            if (lineText as NSString).character(at: match.range.location) != 0x21 {
+            // Tag the whole link (not an image) for ⌘-click. A badge
+            // `[![alt](img)](url)` matches only up to the image here, so its
+            // target would be the image URL: leave it untagged (#38).
+            let text = (lineText as NSString).substring(with: match.range(at: 1))
+            if (lineText as NSString).character(at: match.range.location) != 0x21, !text.hasPrefix("![") {
                 let target = (lineText as NSString).substring(with: match.range(at: 2))
                 storage.addAttribute(Self.linkTargetKey, value: target, range: absolute(match.range))
             }
