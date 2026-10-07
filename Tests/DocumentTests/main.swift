@@ -389,7 +389,11 @@ do {
 // extensions dyn.*; both must reach the document and open as plain text
 // unless their decoded bytes look binary.
 func refused(_ data: Data, as type: UTType = .data) -> Bool {
-    TextDocument.isRefusedAsBinary(contentType: type, decoded: FileEncoding.decode(data).string)
+    (try? TextDocument.decodeRefusingBinary(data, contentType: type)) == nil
+}
+
+func prefixLooksBinary(_ data: Data) -> Bool {
+    FileEncoding.looksBinary(FileEncoding.decode(FileEncoding.binaryCheckPrefix(of: data)).string)
 }
 
 do {
@@ -443,6 +447,36 @@ do {
     expect(!refused(Data("a\u{0}b".utf8), as: .plainText), "text-typed file is never refused")
     expect(!refused(Data("a\u{0}b".utf8), as: .json), "text-family file is never refused")
     expect(refused(Data("a\u{0}b".utf8)), "data-typed file with an early NUL is refused")
+
+    // Large files are decided on a 32 KB prefix before the whole decode.
+    var big = Data(repeating: 0x61, count: 300_000)
+    big[10] = 0
+    expect(FileEncoding.binaryCheckPrefix(of: big).count <= 32_768, "binary check reads at most 32 KB")
+    expect(prefixLooksBinary(big) && refused(big), "large file with an early NUL is refused by its prefix")
+
+    // The prefix must decode the way the whole file does.
+    let utf16Text = String(repeating: "KEY=value 😀\n", count: 3_000)
+    let utf16Odd = utf16Text.data(using: .utf16LittleEndian)! + Data([0x41])
+    expect(prefixLooksBinary(utf16Odd) && refused(utf16Odd),
+           "odd-length BOM-less UTF-16 is refused, by its prefix as by the whole file")
+    var straddleLE = String(repeating: "a", count: 16_383).data(using: .utf16LittleEndian)!
+    straddleLE.append("😀\n".data(using: .utf16LittleEndian)!)
+    straddleLE.append(String(repeating: "b", count: 100).data(using: .utf16LittleEndian)!)
+    expect(!prefixLooksBinary(straddleLE) && !refused(straddleLE),
+           "UTF-16 LE pair across the prefix cut opens")
+    var straddleBE = String(repeating: "a", count: 16_383).data(using: .utf16BigEndian)!
+    straddleBE.append("😀\n".data(using: .utf16BigEndian)!)
+    straddleBE.append(String(repeating: "b", count: 100).data(using: .utf16BigEndian)!)
+    expect(!prefixLooksBinary(straddleBE) && !refused(straddleBE),
+           "UTF-16 BE pair across the prefix cut opens")
+    var bomLE = Data([0xFF, 0xFE])
+    bomLE.append(String(repeating: "a", count: 16_382).data(using: .utf16LittleEndian)!)
+    bomLE.append("😀\n".data(using: .utf16LittleEndian)!)
+    expect(!refused(bomLE), "UTF-16 with BOM and a pair across the prefix cut opens")
+    var loneLate = String(repeating: "a", count: 20_000).data(using: .utf16LittleEndian)!
+    loneLate.append(contentsOf: [0x3D, 0xD8, 0x61, 0x00])
+    expect(!prefixLooksBinary(loneLate) && refused(loneLate),
+           "UTF-16 that fails to decode past the prefix is still refused by the whole file")
 
     // AppKit builds the alert title from the failure reason, not the description.
     let error = TextDocument.notTextFileError as NSError

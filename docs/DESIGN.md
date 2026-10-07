@@ -172,7 +172,11 @@ Three kinds of code say otherwise, each for a reason the compiler can check
   opened type doesn't conform to `public.text` and the decoded text has a
   NUL in its first 8,000 characters (git's heuristic,
   `FileEncoding.looksBinary`), `init(configuration:)` throws a "not a text
-  file" error. Text-typed files skip the guard. `.data` is left out of
+  file" error. It decides on a decoded prefix first
+  (`FileEncoding.binaryCheckPrefix`, 32 KB, cut so it decodes the way the
+  whole file does), so a large binary is refused without decoding all of it,
+  and checks the whole decode again before opening. Text-typed files skip
+  the guard. `.data` is left out of
   `writableContentTypes` so the save panel's File Format menu doesn't gain
   an entry for it; a file opened as `public.data` still saves in place.
 - Markdown-ness for styling/Reader follows the LIVE file URL

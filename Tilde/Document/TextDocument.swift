@@ -98,11 +98,25 @@ nonisolated final class TextDocument: ReferenceFileDocument {
     /// the running app; see VERIFY.md "File associations").
     static var writableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text] }
 
-    /// Whether a file must be refused as binary. Only files macOS did NOT
-    /// type as text are checked, so a text-typed file still always opens
-    /// (FileEncoding's "never refuse a text file").
-    static func isRefusedAsBinary(contentType: UTType, decoded: String) -> Bool {
-        !contentType.conforms(to: .text) && FileEncoding.looksBinary(decoded)
+    /// Decodes a file, refusing it when it looks binary. Only files macOS
+    /// did NOT type as text are checked, so a text-typed file still always
+    /// opens (FileEncoding's "never refuse a text file"). A prefix is
+    /// checked before the whole file so a large binary is refused without
+    /// decoding all of it.
+    static func decodeRefusingBinary(
+        _ data: Data, contentType: UTType
+    ) throws -> (string: String, encoding: FileEncoding, isLossy: Bool) {
+        let checked = !contentType.conforms(to: .text)
+        if checked, FileEncoding.looksBinary(FileEncoding.decode(FileEncoding.binaryCheckPrefix(of: data)).string) {
+            throw notTextFileError
+        }
+        let decoded = FileEncoding.decode(data)
+        // The whole file has the last word: a UTF-16 decode can still fail
+        // past the prefix and fall back to UTF-8, NULs included.
+        if checked, FileEncoding.looksBinary(decoded.string) {
+            throw notTextFileError
+        }
+        return decoded
     }
 
     /// The open-error alert's title is AppKit's "The document “X” could not
@@ -132,10 +146,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        let decoded = FileEncoding.decode(data)
-        if Self.isRefusedAsBinary(contentType: configuration.contentType, decoded: decoded.string) {
-            throw Self.notTextFileError
-        }
+        let decoded = try Self.decodeRefusingBinary(data, contentType: configuration.contentType)
         let normalized = LineEnding.normalizeToLF(decoded.string, recordingMixed: true)
         textStorage = NSTextStorage(string: normalized.text)
         encoding = decoded.encoding
