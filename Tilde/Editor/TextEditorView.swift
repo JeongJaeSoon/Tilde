@@ -296,6 +296,7 @@ struct TextEditorView: NSViewRepresentable {
                 editorView.caretHeight = EditorTheme.caretHeight(monospaced: monospaced, size: settings.fontSize)
                 editorView.bodyLineSpacing = EditorTheme.lineSpacing(for: font)
                 editorView.indentStyle = settings.indentStyle
+                editorView.formatsMarkdown = settings.isMarkdown
             }
 
             configureWordWrap(settings.wordWrap, textView: textView, scrollView: scrollView)

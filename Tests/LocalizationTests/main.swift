@@ -56,7 +56,7 @@ struct Catalog {
 
 /// SwiftUI call sites whose string-literal argument is a LocalizedStringKey,
 /// plus Foundation's explicit String(localized:).
-let localizingCalls = ["Text(", "Button(", "Toggle(", "Picker(", "Section(", "Stepper(", ".help(", "String(localized:", "Label("]
+let localizingCalls = ["Text(", "Button(", "Toggle(", "Picker(", "Section(", "Stepper(", ".help(", "String(localized:", "Label(", "CommandMenu("]
 
 /// Converts a Swift interpolation to the printf-style key SwiftUI derives:
 /// `\(Int(x))` → `%lld`, any other `\(…)` → `%@`.
@@ -145,6 +145,8 @@ func localizableLiterals(inSource path: String) -> [String] {
 let uiSources = [
     "Tilde/App/TildeApp.swift",
     "Tilde/App/Updater.swift",
+    "Tilde/App/FormatCommands.swift",
+    "Tilde/Editor/EditorTextView+MarkdownEditing.swift",
     "Tilde/Editor/EditorView.swift",
     "Tilde/Settings/SettingsView.swift",
     "Tilde/Settings/AppSettings.swift",

@@ -31,6 +31,7 @@ struct TildeApp: App {
             // Standard Find menu (⌘F / ⌘G / ⌥⌘F), routed to the text view's find bar.
             TextEditingCommands()
             ViewCommands()
+            FormatCommands()
             #if canImport(Sparkle)
             UpdateCommands(updater: updater)
             #endif

@@ -103,6 +103,7 @@ struct EditorView: View {
         // content itself) already convey the mode, and the title area shows
         // only the file name (PRODUCT.md §17).
         .publishReaderToggle($isReaderMode, enabled: isMarkdown)
+        .focusedSceneValue(\.markdownFormatting, isMarkdown && !isReaderMode && !document.isLossy)
         .toolbar {
             // A single quiet toggle in the title bar — usable only for
             // Markdown documents, but the toolbar ITEM exists for every

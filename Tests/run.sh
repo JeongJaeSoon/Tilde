@@ -46,6 +46,7 @@ build_and_run StylerTests \
     Tilde/Editor/CodeSyntaxStyler.swift \
     Tilde/Editor/MarkdownFrontmatter.swift \
     Tilde/Editor/MarkdownStyler.swift \
+    Tilde/Editor/MarkdownEditing.swift \
     Tests/StylerTests/main.swift || status=1
 
 build_and_run CodeSyntaxTests \

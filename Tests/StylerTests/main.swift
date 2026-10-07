@@ -503,5 +503,136 @@ do {
     expect(mismatches == 0, "fuzz: 400 task-list edits — incremental styling matches full restyle (\(mismatches) mismatches)")
 }
 
+// MARK: - Markdown editing (wrap, ⌘B / ⌘I, ⌘K, URL paste)
+
+/// Applies a MarkdownEditing edit; returns the new text and selection.
+func applying(_ edit: MarkdownEditing.Edit?, to text: String) -> (text: String, selection: NSRange)? {
+    guard let edit else { return nil }
+    let result = (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+    return (result, edit.selection)
+}
+
+/// The selection range of the first occurrence of `needle`.
+func sel(_ text: String, _ needle: String) -> NSRange { (text as NSString).range(of: needle) }
+
+func selected(_ r: (text: String, selection: NSRange)?) -> String? {
+    r.map { ($0.text as NSString).substring(with: $0.selection) }
+}
+
+do {
+    for (ch, expected) in [("*", "a *word* b"), ("_", "a _word_ b"), ("`", "a `word` b"), ("~", "a ~word~ b"),
+                           ("[", "a [word] b"), ("(", "a (word) b"), ("\"", "a \"word\" b")] {
+        let text = "a word b"
+        let r = applying(MarkdownEditing.surround(text as NSString, selection: sel(text, "word"), with: ch), to: text)
+        expect(r?.text == expected && selected(r) == "word", "typed \(ch) wraps the selection, inner text stays selected")
+    }
+    expect(MarkdownEditing.surround("a word b", selection: sel("a word b", "word"), with: "x") == nil, "a non-wrap character returns nil")
+    expect(MarkdownEditing.surround("a word b", selection: NSRange(location: 2, length: 0), with: "*") == nil, "no selection returns nil")
+    expect(MarkdownEditing.surround("a word b", selection: sel("a word b", "word"), with: "＊") == nil, "full-width ＊ is not a wrap character")
+}
+
+do {
+    // Two * in a row give bold, two ~ give strikethrough — checked against the real styler.
+    var text = "make word bold\n"
+    var r = applying(MarkdownEditing.surround(text as NSString, selection: sel(text, "word"), with: "*"), to: text)!
+    r = applying(MarkdownEditing.surround(r.text as NSString, selection: r.selection, with: "*"), to: r.text)!
+    expect(r.text == "make **word** bold\n" && selected(r) == "word", "double * nests to **word**")
+    expect(isBold(font(styled(r.text), at: r.selection.location)), "double * output is styled bold")
+
+    text = "a gone b\n"
+    var t = applying(MarkdownEditing.surround(text as NSString, selection: sel(text, "gone"), with: "~"), to: text)!
+    t = applying(MarkdownEditing.surround(t.text as NSString, selection: t.selection, with: "~"), to: t.text)!
+    expect(t.text == "a ~~gone~~ b\n", "double ~ nests to ~~gone~~")
+}
+
+do {
+    let text = "a word  b"
+    let r = applying(MarkdownEditing.surround(text as NSString, selection: sel(text, " word  "), with: "*"), to: text)
+    expect(r?.text == "a *word*  b" && selected(r) == "word", "edge whitespace stays outside the markers")
+    expect(MarkdownEditing.surround("a   b", selection: NSRange(location: 1, length: 3), with: "*") == nil, "whitespace-only selection returns nil")
+    expect(MarkdownEditing.surround("one\ntwo", selection: NSRange(location: 1, length: 4), with: "*") == nil, "selection spanning lines returns nil")
+    expect(MarkdownEditing.surround("one\n", selection: NSRange(location: 0, length: 4), with: "*") == nil, "selection including the newline returns nil")
+}
+
+do {
+    // Bold on and off.
+    let text = "a word b\n"
+    let on = applying(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, "word ")), to: text)!
+    expect(on.text == "a **word** b\n" && selected(on) == "word", "⌘B adds ** with whitespace trimmed")
+    expect(isBold(font(styled(on.text), at: on.selection.location)), "⌘B output is styled bold")
+    let off = applying(MarkdownEditing.toggleEmphasis(.bold, in: on.text as NSString, selection: on.selection), to: on.text)!
+    expect(off.text == text && selected(off) == "word", "⌘B again removes the markers outside the selection")
+    let inclusive = "a **word** b\n"
+    let off2 = applying(MarkdownEditing.toggleEmphasis(.bold, in: inclusive as NSString, selection: sel(inclusive, "**word**")), to: inclusive)
+    expect(off2?.text == text && selected(off2) == "word", "⌘B removes markers at the selection's ends")
+}
+
+do {
+    // Italic stacks on bold and comes back off.
+    let text = "a **x** b\n"
+    let on = applying(MarkdownEditing.toggleEmphasis(.italic, in: text as NSString, selection: sel(text, "x")), to: text)!
+    expect(on.text == "a ***x*** b\n" && selected(on) == "x", "⌘I inside **x** gives ***x***")
+    let s = styled(on.text)
+    expect(isBold(font(s, at: on.selection.location)) && isItalic(font(s, at: on.selection.location)), "***x*** is styled bold italic")
+    let off = applying(MarkdownEditing.toggleEmphasis(.italic, in: on.text as NSString, selection: on.selection), to: on.text)!
+    expect(off.text == text, "⌘I again gives back **x**")
+    let unbold = applying(MarkdownEditing.toggleEmphasis(.bold, in: on.text as NSString, selection: on.selection), to: on.text)
+    expect(unbold?.text == "a *x* b\n", "⌘B on ***x*** leaves *x*")
+}
+
+do {
+    // Bold on an italic span, plain italic.
+    let text = "an *it* word\n"
+    let bold = applying(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, "it")), to: text)
+    expect(bold?.text == "an ***it*** word\n", "⌘B on *it* gives ***it***")
+    let plain = "an it word\n"
+    let it = applying(MarkdownEditing.toggleEmphasis(.italic, in: plain as NSString, selection: sel(plain, "it")), to: plain)!
+    expect(it.text == "an *it* word\n", "⌘I adds *")
+    expect(isItalic(font(styled(it.text), at: it.selection.location)), "⌘I output is styled italic")
+}
+
+do {
+    let b = applying(MarkdownEditing.toggleEmphasis(.bold, in: "ab", selection: NSRange(location: 1, length: 0)), to: "ab")
+    expect(b?.text == "a****b" && b?.selection == NSRange(location: 3, length: 0), "⌘B with no selection inserts **** with the caret in the middle")
+    let i = applying(MarkdownEditing.toggleEmphasis(.italic, in: "ab", selection: NSRange(location: 1, length: 0)), to: "ab")
+    expect(i?.text == "a**b" && i?.selection == NSRange(location: 2, length: 0), "⌘I with no selection inserts ** with the caret in the middle")
+    expect(MarkdownEditing.toggleEmphasis(.bold, in: "one\ntwo", selection: NSRange(location: 1, length: 4)) == nil, "⌘B across lines returns nil (beep)")
+}
+
+do {
+    let text = "see docs now"
+    let full = applying(MarkdownEditing.link(in: text as NSString, selection: sel(text, "docs"), url: "https://example.com"), to: text)
+    expect(full?.text == "see [docs](https://example.com) now", "⌘K with a URL builds [text](url)")
+    expect(full?.selection == NSRange(location: 31, length: 0), "⌘K with a URL puts the caret after the link")
+    let bare = applying(MarkdownEditing.link(in: text as NSString, selection: sel(text, "docs "), url: nil), to: text)
+    expect(bare?.text == "see [docs]() now" && bare?.selection == NSRange(location: 11, length: 0), "⌘K without a URL puts the caret inside ()")
+    let empty = applying(MarkdownEditing.link(in: "ab", selection: NSRange(location: 1, length: 0), url: "https://x.org"), to: "ab")
+    expect(empty?.text == "a[](https://x.org)b" && empty?.selection == NSRange(location: 2, length: 0), "⌘K with no selection puts the caret inside []")
+    let emptyBare = applying(MarkdownEditing.link(in: "ab", selection: NSRange(location: 1, length: 0), url: nil), to: "ab")
+    expect(emptyBare?.text == "a[]()b", "⌘K with no selection and no URL gives []()")
+    expect(MarkdownEditing.link(in: "one\ntwo", selection: NSRange(location: 1, length: 4), url: nil) == nil, "⌘K across lines returns nil")
+    let s = styled(full!.text + "\n")
+    expect(color(s, at: 5) == EditorTheme.linkColor, "the built link is styled as a link")
+}
+
+do {
+    expect(MarkdownEditing.linkableURL(from: "https://example.com") == "https://example.com", "https URL is linkable")
+    expect(MarkdownEditing.linkableURL(from: "  http://a.b/c?d=1\n") == "http://a.b/c?d=1", "surrounding whitespace is trimmed")
+    expect(MarkdownEditing.linkableURL(from: "mailto:me@example.com") == "mailto:me@example.com", "mailto is linkable")
+    expect(MarkdownEditing.linkableURL(from: "HTTPS://Example.com") != nil, "scheme is case-insensitive")
+    expect(MarkdownEditing.linkableURL(from: "https://a.com https://b.com") == nil, "two tokens are not a URL")
+    expect(MarkdownEditing.linkableURL(from: "see https://a.com") == nil, "text around a URL is not a URL")
+    expect(MarkdownEditing.linkableURL(from: "example.com") == nil, "a bare domain is not a URL")
+    expect(MarkdownEditing.linkableURL(from: "ftp://a.com/x") == nil, "other schemes are not linkable")
+    expect(MarkdownEditing.linkableURL(from: "https://") == nil, "a scheme alone is not a URL")
+    expect(MarkdownEditing.linkableURL(from: "") == nil, "empty clipboard is not a URL")
+    let wiki = MarkdownEditing.linkableURL(from: "https://en.wikipedia.org/wiki/Swift_(programming_language)")
+    expect(wiki == "https://en.wikipedia.org/wiki/Swift_%28programming_language%29", "parentheses are percent-encoded")
+    let text = "read this\n"
+    let linked = applying(MarkdownEditing.link(in: text as NSString, selection: sel(text, "this"), url: wiki), to: text)!
+    let urlEnd = (linked.text as NSString).range(of: "%29").location + 2
+    expect(color(styled(linked.text), at: urlEnd) == EditorTheme.markerColor, "an encoded URL stays inside one styled link")
+}
+
 print("\n\(passed) passed, \(failed) failed")
 exit(failed == 0 ? 0 : 1)
