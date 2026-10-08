@@ -49,6 +49,28 @@
       },
       "shouldTranslate" : false
     },
+    "Other Text File" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他のテキストファイル"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기타 텍스트 파일"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他文本文件"
+          }
+        }
+      }
+    },
     "Plain Text Document" : {
       "extractionState" : "stale",
       "localizations" : {
