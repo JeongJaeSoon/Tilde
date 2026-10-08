@@ -1,4 +1,4 @@
-# App Store Connect 등록 문안 (Tilde v1.1.1)
+# App Store Connect 등록 문안 (Tilde v1.2.1)
 
 각 항목의 글자 수 제한은 App Store Connect 기준이며, `scripts/check_listing.py`로 검증할 수 있다.
 
@@ -19,7 +19,7 @@
 | --- | --- |
 | Bundle ID | `co.euca.Tilde` |
 | SKU | `tilde-macos` |
-| Version | `1.1.1` |
+| Version | `1.2.1` |
 | Primary Language | English (U.S.) |
 | Primary Category | Productivity |
 | Secondary Category | Developer Tools |
@@ -115,11 +115,11 @@ Full IDEs and note apps are heavy tools for a light job. When all you need is to
 MARKDOWN, DONE LIGHTLY
 • Headings, bold, italic, strikethrough, inline code, code blocks, blockquotes, links, lists, and rules are styled in place
 • The Markdown syntax stays visible — Tilde makes it easier to read, not hidden
-• Reader mode (⌘⇧R): a fully rendered, read-only view with tables and highlighted code blocks; toggle it from the title bar like Safari's Reader
+• Reader mode (⌘⇧R): a fully rendered, read-only view with tables, highlighted code blocks and task-list checkboxes; toggle it from the title bar like Safari's Reader
 • YAML frontmatter stays quiet in the editor and becomes a tidy header in Reader: the title on top, the other fields as rows
 
 PLAIN TEXT AND CONFIG FILES
-• Opens .txt, .md, .markdown and most UTF-based text files: .json, .yaml, .toml, .xml, .csv, .log, .env and more
+• Opens .txt, .md, .markdown and most UTF-based text files: .json, .yaml, .toml, .xml, .csv, .log, .env and more — even files with no extension, like Dockerfile or SSH keys
 • Quiet syntax highlighting for .json, .yaml and .toml — keys tinted, everything else left alone
 • Files in unsupported encodings open read-only so the original bytes are never damaged
 
@@ -145,8 +145,8 @@ Just open the file.
 
 **What's New in This Version**
 ```
-• Files that mix line endings keep them: saving changes only the endings of lines you added or edited, and a save without edits leaves the file exactly as it was
-• On a Markdown heading line the caret now spans the heading's text, and on the last line after a heading it sits one line below instead of inside it
+• Reader shows task lists as checkboxes: items that start with [ ] or [x] get an empty or checked box in place of the bullet, and checked items are dimmed. In the editor, [ ] and [x] dim like list markers
+• Text files with no extension or an unfamiliar one, like Dockerfile, .gitignore, or SSH keys such as id_ed25519, now open as plain text from Open With and File ▸ Open. A binary file picked this way is refused with a short alert
 ```
 
 ---
@@ -185,11 +185,11 @@ README를 잠깐 확인하거나 설정 파일 한 줄을 고치거나 Markdown 
 가볍게 다듬은 Markdown
 • 제목, 굵게, 기울임, 취소선, 인라인 코드, 코드 블록, 인용, 링크, 목록, 구분선을 제자리에서 스타일링
 • Markdown 문법은 그대로 보입니다. 숨기는 것이 아니라 읽기 쉽게 만듭니다
-• Reader 모드(⌘⇧R): 표와 코드 하이라이팅을 포함한 완전 렌더링 읽기 전용 화면. Safari의 읽기 도구처럼 타이틀 바에서 전환
+• Reader 모드(⌘⇧R): 표, 코드 하이라이팅, 작업 목록 체크박스를 포함한 완전 렌더링 읽기 전용 화면. Safari의 읽기 도구처럼 타이틀 바에서 전환
 • YAML 프론트매터는 편집기에서 조용히 표시되고, Reader 모드에서는 맨 위의 제목과 행으로 정리된 항목으로 보여 줍니다
 
 일반 텍스트와 설정 파일
-• .txt, .md, .markdown은 물론 .json, .yaml, .toml, .xml, .csv, .log, .env 등 대부분의 UTF 기반 텍스트 파일 지원
+• .txt, .md, .markdown은 물론 .json, .yaml, .toml, .xml, .csv, .log, .env 등 대부분의 UTF 기반 텍스트 파일 지원. Dockerfile이나 SSH 키처럼 확장자가 없는 파일도 열림
 • .json, .yaml, .toml은 키만 살짝 색을 입히는 조용한 하이라이팅
 • 지원하지 않는 인코딩의 파일은 읽기 전용으로 열어 원본을 절대 손상시키지 않습니다
 
@@ -215,8 +215,8 @@ Tilde는 MIT 라이선스의 오픈 소스입니다.
 
 **What's New in This Version**
 ```
-• 줄바꿈 방식이 섞인 파일도 그대로 유지합니다. 저장할 때 새로 쓰거나 고친 줄의 줄바꿈만 바뀌고, 고친 곳 없이 저장하면 파일이 전혀 바뀌지 않습니다
-• Markdown 제목 줄에서 커서가 제목 글자 높이만큼 표시되고, 제목 다음 마지막 줄에서는 제목 안이 아니라 한 줄 아래에 놓입니다
+• Reader 모드가 작업 목록을 체크박스로 보여 줍니다. [ ] 또는 [x]로 시작하는 항목은 글머리 기호 대신 빈 상자나 체크된 상자로 표시되고, 완료한 항목은 흐리게 표시됩니다. 편집기에서는 [ ]와 [x]가 목록 기호처럼 흐리게 표시됩니다
+• Dockerfile, .gitignore, id_ed25519 같은 SSH 키처럼 확장자가 없거나 낯선 텍스트 파일도 '다음으로 열기'와 파일 ▸ 열기에서 평문으로 열 수 있습니다. 이렇게 고른 파일이 바이너리면 짧은 알림을 보여 주고 열지 않습니다
 ```
 
 ---
@@ -255,11 +255,11 @@ READMEをちょっと確認する、設定ファイルを一行直す、Markdown
 軽く整えたMarkdown
 • 見出し、太字、斜体、取り消し線、インラインコード、コードブロック、引用、リンク、リスト、区切り線をその場でスタイリング
 • Markdown記法はそのまま見えます。隠すのではなく読みやすくします
-• リーダーモード(⌘⇧R): 表やコードハイライトを含む完全レンダリングの読み取り専用表示。Safariのリーダーのようにタイトルバーから切り替え
+• リーダーモード(⌘⇧R): 表やコードハイライト、タスクリストのチェックボックスを含む完全レンダリングの読み取り専用表示。Safariのリーダーのようにタイトルバーから切り替え
 • YAMLフロントマターはエディタでは控えめに表示し、リーダーモードではタイトルを先頭に、ほかの項目を行に並べたヘッダーとして表示
 
 プレーンテキストと設定ファイル
-• .txt、.md、.markdownに加え、.json、.yaml、.toml、.xml、.csv、.log、.envなどUTF系テキストファイルの多くを開けます
+• .txt、.md、.markdownに加え、.json、.yaml、.toml、.xml、.csv、.log、.envなどUTF系テキストファイルの多くを開けます。Dockerfileや SSH鍵など、拡張子のないファイルも開けます
 • .json、.yaml、.tomlはキーだけを淡く色付けする静かなハイライト
 • 未対応エンコーディングのファイルは読み取り専用で開き、元のバイト列を決して壊しません
 
@@ -285,8 +285,8 @@ TildeはMITライセンスのオープンソースです。
 
 **What's New in This Version**
 ```
-• 改行コードが混在したファイルもそのまま保ちます。保存時に改行コードが変わるのは追加・編集した行だけで、編集せずに保存してもファイルは一切変わりません
-• Markdownの見出し行ではキャレットが見出しの文字の高さで表示され、見出しの後の最終行では見出しの中ではなく一行下に置かれます
+• リーダーモードでタスクリストをチェックボックスとして表示します。[ ] または [x] で始まる項目は、箇条書きの記号の代わりに空のボックスまたはチェック済みのボックスで表示され、完了した項目は淡く表示されます。エディタでは [ ] と [x] がリストの記号と同じように淡く表示されます
+• Dockerfile、.gitignore、id_ed25519などのSSH鍵のように、拡張子がない、または見慣れない拡張子のテキストファイルも「このアプリケーションで開く」や「ファイル ▸ 開く」からプレーンテキストとして開けるようになりました。この方法で選んだファイルがバイナリの場合は、短い警告を表示して開きません
 ```
 
 ---
@@ -325,11 +325,11 @@ Tilde 是一款小巧而美观的 macOS 文本编辑器,为这样的人而生:�
 轻描淡写的 Markdown
 • 标题、粗体、斜体、删除线、行内代码、代码块、引用、链接、列表和分隔线均就地渲染样式
 • Markdown 语法保持可见,Tilde 让它更易读,而不是把它藏起来
-• 阅读模式(⌘⇧R):完整渲染的只读视图,支持表格和代码高亮;像 Safari 阅读器一样从标题栏切换
+• 阅读模式(⌘⇧R):完整渲染的只读视图,支持表格、代码高亮和任务列表复选框;像 Safari 阅读器一样从标题栏切换
 • YAML front matter 在编辑器中安静显示,在阅读模式中呈现为整洁的标题区:标题在上,其余字段逐行排列
 
 纯文本与配置文件
-• 支持 .txt、.md、.markdown,以及 .json、.yaml、.toml、.xml、.csv、.log、.env 等大多数 UTF 编码文本文件
+• 支持 .txt、.md、.markdown,以及 .json、.yaml、.toml、.xml、.csv、.log、.env 等大多数 UTF 编码文本文件,包括 Dockerfile、SSH 密钥等没有扩展名的文件
 • .json、.yaml、.toml 采用安静的语法高亮,仅为键着色,其余保持原样
 • 不支持编码的文件以只读方式打开,绝不损坏原始字节
 
@@ -355,6 +355,6 @@ Tilde 基于 MIT 许可证开源。
 
 **What's New in This Version**
 ```
-• 混用多种换行符的文件会保持原样:保存时只有新增或编辑过的行会改变换行符,未编辑直接保存时文件完全不变
-• 在 Markdown 标题行上,光标现在与标题文字等高;在标题之后的最后一行,光标位于标题下一行,而不是标题内部
+• 阅读模式将任务列表显示为复选框:以 [ ] 或 [x] 开头的项目会以空框或已勾选的框代替项目符号,已完成的项目以淡色显示。在编辑器中,[ ] 和 [x] 会像列表标记一样淡化显示
+• 没有扩展名或扩展名不常见的文本文件(如 Dockerfile、.gitignore,以及 id_ed25519 等 SSH 密钥)现在可以通过"打开方式"和"文件 ▸ 打开"以纯文本打开。以这种方式选择的文件如果是二进制文件,会显示简短提示并拒绝打开
 ```
