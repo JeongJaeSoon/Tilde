@@ -31,6 +31,20 @@ runners, and the unsigned smoke bundle).
 - [ ] `.toml` opens as text and shows key highlighting (needs the imported
       `io.toml.toml` UTI to register — verify on a clean install, since
       LaunchServices caches the dynamic type)
+- [ ] `id_ed25519`, `id_ed25519.pub`, `.gitignore`, `.env`, `Dockerfile`
+      open via Open With, the open panel, and a Dock drag, as plain text
+      (no Markdown styling or key highlighting). Test on a clean install or
+      after `lsregister -f`, since LaunchServices caches document types.
+      LaunchServices doesn't offer an app that lives under `/tmp` in Open
+      With, so copy a build from a temporary DerivedData path elsewhere first
+- [ ] Edit and save `id_ed25519`: the name stays the same and permissions
+      stay `-rw-------` (ssh refuses a group/world-readable private key)
+- [ ] The save panel's format menu for a new document gains no
+      "Other Text File" / data entry
+- [ ] A PNG or PDF picked in the open panel shows the "isn't a text file"
+      alert
+- [ ] Tilde does not become the default app for any file type it wasn't
+      before (Finder Get Info on a `.png`, `.zip`)
 
 ## Document behavior
 

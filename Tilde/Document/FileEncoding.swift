@@ -85,6 +85,39 @@ nonisolated struct FileEncoding: Equatable {
         return (String(decoding: data, as: UTF8.self), FileEncoding(base: .utf8, hasBOM: false), true)
     }
 
+    // MARK: - Binary detection
+
+    /// git's binary heuristic, applied to the DECODED text: a NUL in the
+    /// first 8,000 characters means the bytes aren't text. Checking after
+    /// decoding keeps BOM-less UTF-16 text, whose raw bytes are full of
+    /// NULs, on the text side.
+    static func looksBinary(_ string: String) -> Bool {
+        string.unicodeScalars.prefix(8000).contains("\0")
+    }
+
+    /// The leading bytes `looksBinary` needs, so a large binary can be
+    /// refused without decoding all of it. 8,000 scalars never take more
+    /// than 32,000 bytes: no scalar, U+FFFD included, takes more than 4 in
+    /// UTF-8 or UTF-16. The cut keeps the whole file's byte-count parity, which
+    /// decides whether UTF-16 is tried, and never splits a UTF-16 surrogate
+    /// pair, which fails the UTF-16 decode: either would decode the prefix
+    /// differently from the whole file.
+    static func binaryCheckPrefix(of data: Data) -> Data {
+        guard data.count > 32_768 else { return data }
+        guard data.count.isMultiple(of: 2) else { return data.prefix(32_767) }
+        // The byte order isn't known yet, so drop whole code units while the
+        // last one reads as a high surrogate in either order. A low surrogate
+        // that only looks high in the wrong order goes with its pair.
+        let highSurrogateByte: ClosedRange<UInt8> = 0xD8...0xDB
+        var count = 32_768
+        while highSurrogateByte.contains(data[data.startIndex + count - 2])
+            || highSurrogateByte.contains(data[data.startIndex + count - 1]) {
+            count -= 2
+            if count < 32_000 { return data }
+        }
+        return data.prefix(count)
+    }
+
     // MARK: - Encoding
 
     func encode(_ string: String) -> Data {

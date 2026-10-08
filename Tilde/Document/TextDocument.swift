@@ -92,9 +92,51 @@ nonisolated final class TextDocument: ReferenceFileDocument {
 
     /// `.plainText` first: new documents default to `.txt` in the save panel.
     /// `.text` admits the broader family (JSON, YAML, XML, …) via Open With —
-    /// all treated as plain text (PRODUCT.md §6). Writable types stay equal
-    /// to readable so every file that opens can also be saved back.
-    static var readableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text] }
+    /// all treated as plain text (PRODUCT.md §6). `.data` last admits files
+    /// macOS can't type as text from their name (`id_ed25519`, `.gitignore`,
+    /// `id_ed25519.pub`); `init(configuration:)` refuses the binary ones.
+    static var readableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text, .data] }
+
+    /// Readable minus `.data`, which would otherwise show up as an extra
+    /// entry in the save panel's File Format menu. A file opened as
+    /// `public.data` still saves in place under its own name (checked in
+    /// the running app; see VERIFY.md "File associations").
+    static var writableContentTypes: [UTType] { [.plainText, .markdown, .toml, .text] }
+
+    /// Decodes a file, refusing it when it looks binary. Only files macOS
+    /// did NOT type as text are checked, so a text-typed file still always
+    /// opens (FileEncoding's "never refuse a text file"). A prefix is
+    /// checked before the whole file so a large binary is refused without
+    /// decoding all of it.
+    static func decodeRefusingBinary(
+        _ data: Data, contentType: UTType
+    ) throws -> (string: String, encoding: FileEncoding, isLossy: Bool) {
+        let checked = !contentType.conforms(to: .text)
+        if checked, FileEncoding.looksBinary(FileEncoding.decode(FileEncoding.binaryCheckPrefix(of: data)).string) {
+            throw notTextFileError
+        }
+        let decoded = FileEncoding.decode(data)
+        // The whole file has the last word: a UTF-16 decode can still fail
+        // past the prefix and fall back to UTF-8, NULs included.
+        if checked, FileEncoding.looksBinary(decoded.string) {
+            throw notTextFileError
+        }
+        return decoded
+    }
+
+    /// The open-error alert's title is AppKit's "The document “X” could not
+    /// be opened." followed by the failure reason; the description is not
+    /// shown, so the reason carries the message.
+    static var notTextFileError: CocoaError {
+        let reason = String(localized: "This file isn't a text file.")
+        return CocoaError(.fileReadCorruptFile, userInfo: [
+            NSLocalizedDescriptionKey: reason,
+            NSLocalizedFailureReasonErrorKey: reason,
+            NSLocalizedRecoverySuggestionErrorKey: String(
+                localized: "Tilde opens text files only. Images, PDFs, and other binary files can't be edited."
+            ),
+        ])
+    }
 
     init() {
         textStorage = NSTextStorage()
@@ -110,7 +152,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        let decoded = FileEncoding.decode(data)
+        let decoded = try Self.decodeRefusingBinary(data, contentType: configuration.contentType)
         let normalized = LineEnding.normalizeToLF(decoded.string, recordingMixed: true)
         textStorage = NSTextStorage(string: normalized.text)
         encoding = decoded.encoding

@@ -3,6 +3,7 @@
 // no XCTest, so the suite runs on machines with only the Command Line Tools.
 
 import Foundation
+import UniformTypeIdentifiers
 
 var passed = 0
 var failed = 0
@@ -469,6 +470,123 @@ do {
     o = four.outdent(in: block as NSString, selection: NSRange(location: 4, length: 9))
     expect(applied(block, o) == "a\nb\nc\n", "outdent: block outdents every touched line")
     expect(o?.selection == NSRange(location: 0, length: 7), "outdent: block selection covers the same text")
+}
+
+// MARK: - Files macOS doesn't type as text (#29)
+
+// Extension-less names and dotfiles are typed public.data, unknown
+// extensions dyn.*; both must reach the document and open as plain text
+// unless their decoded bytes look binary.
+func refused(_ data: Data, as type: UTType = .data) -> Bool {
+    (try? TextDocument.decodeRefusingBinary(data, contentType: type)) == nil
+}
+
+func prefixLooksBinary(_ data: Data) -> Bool {
+    FileEncoding.looksBinary(FileEncoding.decode(FileEncoding.binaryCheckPrefix(of: data)).string)
+}
+
+do {
+    let types = TextDocument.readableContentTypes
+    expect(types.first == .plainText, "new documents still default to plain text")
+    expect(types.last == .data, "public.data is the last readable type")
+    expect(TextDocument.writableContentTypes == Array(types.dropLast()),
+           "public.data is readable but not offered in the save panel")
+    let unknown = UTType(filenameExtension: "tildeunknownext")!
+    expect(unknown.isDynamic && unknown.conforms(to: .data), "unknown extension is a dynamic data type")
+    expect(types.contains { unknown.conforms(to: $0) }, "unknown extension is readable")
+    expect(!unknown.conforms(to: .markdown) && !UTType.data.conforms(to: .markdown),
+           "data types never open as markdown")
+    expect(TextDocument.isMarkdown(openedAsMarkdown: UTType.data.conforms(to: .markdown),
+                                   fileURL: URL(fileURLWithPath: "/tmp/id_ed25519")) == false,
+           "extension-less data file opens as plain text")
+}
+
+do {
+    let pem = """
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+        -----END OPENSSH PRIVATE KEY-----
+
+        """
+    expect(!refused(Data(pem.utf8)), "PEM private key opens")
+    let pub = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl user@host\n"
+    expect(!refused(Data(pub.utf8)), "OpenSSH public key opens")
+    expect(!refused(Data(".DS_Store\nbuild/\n*.xcuserstate\n".utf8)), ".gitignore body opens")
+    expect(!refused(Data("API_KEY=secret\n".utf8)), ".env body opens")
+    let utf16 = "KEY=value\nOTHER=1\n"
+    expect(!refused(utf16.data(using: .utf16LittleEndian)!), "BOM-less UTF-16 LE opens")
+    expect(!refused(utf16.data(using: .utf16BigEndian)!), "BOM-less UTF-16 BE opens")
+    expect(!refused(Data()), "empty file opens")
+
+    let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+                    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+                    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06])
+    expect(refused(png), "PNG header is refused")
+    expect(refused(png, as: .png), "PNG typed as image is refused")
+    var pdf = Data("%PDF-1.7\n%".utf8)
+    pdf.append(contentsOf: [0xE2, 0xE3, 0xCF, 0xD3])
+    pdf.append(Data("\n1 0 obj\n<< /Length 8 /Filter /FlateDecode >>\nstream\n".utf8))
+    pdf.append(contentsOf: [0x78, 0x9C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01])
+    expect(refused(pdf, as: .pdf), "PDF with a binary stream is refused")
+    expect(refused(Data(count: 4096)), "all-zero file is refused")
+
+    var lateNUL = Data(repeating: 0x61, count: 9000)
+    lateNUL.append(0)
+    expect(!refused(lateNUL), "NUL past the first 8,000 characters doesn't refuse")
+
+    // Text-typed files skip the guard: a .txt with a NUL still opens.
+    expect(!refused(Data("a\u{0}b".utf8), as: .plainText), "text-typed file is never refused")
+    expect(!refused(Data("a\u{0}b".utf8), as: .json), "text-family file is never refused")
+    expect(refused(Data("a\u{0}b".utf8)), "data-typed file with an early NUL is refused")
+
+    // Large files are decided on a 32 KB prefix before the whole decode.
+    var big = Data(repeating: 0x61, count: 300_000)
+    big[10] = 0
+    expect(FileEncoding.binaryCheckPrefix(of: big).count <= 32_768, "binary check reads at most 32 KB")
+    expect(prefixLooksBinary(big) && refused(big), "large file with an early NUL is refused by its prefix")
+
+    // The prefix must decode the way the whole file does.
+    let utf16Text = String(repeating: "KEY=value 😀\n", count: 3_000)
+    let utf16Odd = utf16Text.data(using: .utf16LittleEndian)! + Data([0x41])
+    expect(prefixLooksBinary(utf16Odd) && refused(utf16Odd),
+           "odd-length BOM-less UTF-16 is refused, by its prefix as by the whole file")
+    var straddleLE = String(repeating: "a", count: 16_383).data(using: .utf16LittleEndian)!
+    straddleLE.append("😀\n".data(using: .utf16LittleEndian)!)
+    straddleLE.append(String(repeating: "b", count: 100).data(using: .utf16LittleEndian)!)
+    expect(!prefixLooksBinary(straddleLE) && !refused(straddleLE),
+           "UTF-16 LE pair across the prefix cut opens")
+    var straddleBE = String(repeating: "a", count: 16_383).data(using: .utf16BigEndian)!
+    straddleBE.append("😀\n".data(using: .utf16BigEndian)!)
+    straddleBE.append(String(repeating: "b", count: 100).data(using: .utf16BigEndian)!)
+    expect(!prefixLooksBinary(straddleBE) && !refused(straddleBE),
+           "UTF-16 BE pair across the prefix cut opens")
+    // U+1F6D8's low surrogate (DED8) ends in a byte that reads as a high
+    // surrogate in the other byte order; the pair must still survive the cut.
+    for encoding in [String.Encoding.utf16LittleEndian, .utf16BigEndian] {
+        var lowLooksHigh = String(repeating: "a", count: 16_382).data(using: encoding)!
+        lowLooksHigh.append("\u{1F6D8}\n".data(using: encoding)!)
+        lowLooksHigh.append(String(repeating: "b", count: 100).data(using: encoding)!)
+        expect(!prefixLooksBinary(lowLooksHigh) && !refused(lowLooksHigh),
+               "UTF-16 pair ending exactly at the cut opens (\(encoding == .utf16BigEndian ? "BE" : "LE"))")
+    }
+    let noCut = Data(repeating: 0xD8, count: 40_000)
+    expect(FileEncoding.binaryCheckPrefix(of: noCut) == noCut,
+           "with no safe cut, the binary check falls back to the whole file")
+    var bomLE = Data([0xFF, 0xFE])
+    bomLE.append(String(repeating: "a", count: 16_382).data(using: .utf16LittleEndian)!)
+    bomLE.append("😀\n".data(using: .utf16LittleEndian)!)
+    expect(!refused(bomLE), "UTF-16 with BOM and a pair across the prefix cut opens")
+    var loneLate = String(repeating: "a", count: 20_000).data(using: .utf16LittleEndian)!
+    loneLate.append(contentsOf: [0x3D, 0xD8, 0x61, 0x00])
+    expect(!prefixLooksBinary(loneLate) && refused(loneLate),
+           "UTF-16 that fails to decode past the prefix is still refused by the whole file")
+
+    // AppKit builds the alert title from the failure reason, not the description.
+    let error = TextDocument.notTextFileError as NSError
+    expect(error.localizedFailureReason == "This file isn't a text file.",
+           "binary refusal names the reason in the alert title")
+    expect(error.localizedRecoverySuggestion?.hasPrefix("Tilde opens text files only.") == true,
+           "binary refusal explains what Tilde opens")
 }
 
 print("\n\(passed) passed, \(failed) failed")
