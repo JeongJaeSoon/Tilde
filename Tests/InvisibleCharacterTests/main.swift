@@ -129,7 +129,15 @@ do {
     let source = NSAttributedString(string: "10\u{00A0}km\n")
     let shown = InvisibleCharacters.displayParagraph(source)
     expect(shown?.string == source.string, "NBSP is an attribute-only change")
-    expect(shown?.attribute(.backgroundColor, at: 2, effectiveRange: nil) as? NSColor == EditorTheme.invisibleCharacterColor, "NBSP gets the tint")
+    expect(shown?.attribute(.backgroundColor, at: 2, effectiveRange: nil) as? NSColor == EditorTheme.unusualSpaceColor, "NBSP gets the fainter space tint")
+}
+
+do {
+    // A full-width space is an em wide; it takes the fainter tint, while a
+    // zero-width mark in the same paragraph keeps the stronger one.
+    let shown = InvisibleCharacters.displayParagraph(NSAttributedString(string: "\u{3000}本日\u{200B}は\n"))
+    expect(shown?.attribute(.backgroundColor, at: 0, effectiveRange: nil) as? NSColor == EditorTheme.unusualSpaceColor, "full-width space gets the fainter space tint")
+    expect(shown?.attribute(.backgroundColor, at: 3, effectiveRange: nil) as? NSColor == EditorTheme.invisibleCharacterColor, "zero-width keeps the stronger tint")
 }
 
 // MARK: - Content storage delegate

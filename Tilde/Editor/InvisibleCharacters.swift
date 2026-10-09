@@ -103,8 +103,10 @@ nonisolated enum InvisibleCharacters {
             let range = NSRange(location: mark.location, length: 1)
             display.replaceCharacters(in: range, with: units.substring(with: range))
             switch mark.kind {
-            case .zeroWidth, .bidiControl, .unusualSpace:
+            case .zeroWidth, .bidiControl:
                 display.addAttribute(.backgroundColor, value: EditorTheme.invisibleCharacterColor, range: range)
+            case .unusualSpace:
+                display.addAttribute(.backgroundColor, value: EditorTheme.unusualSpaceColor, range: range)
             case .controlCode:
                 display.addAttribute(.foregroundColor, value: EditorTheme.controlPictureColor, range: range)
             }
@@ -132,11 +134,21 @@ nonisolated final class InvisibleCharacterRevealer: NSObject, NSTextContentStora
 }
 
 nonisolated extension EditorTheme {
-    /// Faint tint behind a revealed zero-width, bidirectional, or unusual
-    /// space character: visible on close reading, quiet otherwise.
+    /// Faint tint behind a revealed zero-width or bidirectional character:
+    /// the mark is only a thin space wide, so it needs this much to stay
+    /// visible on close reading.
     static let invisibleCharacterColor: NSColor = NSColor(name: nil) { appearance in
         NSColor.systemOrange.withAlphaComponent(
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? 0.35 : 0.25
+        )
+    }
+
+    /// Fainter tint behind a revealed unusual space. A full-width space is
+    /// a whole em wide and routine in Japanese prose (indents, aligned
+    /// lists); at the zero-width strength it would read as a solid block.
+    static let unusualSpaceColor: NSColor = NSColor(name: nil) { appearance in
+        NSColor.systemOrange.withAlphaComponent(
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? 0.15 : 0.12
         )
     }
 
