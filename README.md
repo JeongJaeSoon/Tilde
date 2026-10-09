@@ -46,9 +46,9 @@ It is **not** an IDE, a project workspace, a note database, or a Markdown author
 
 - Native macOS document-based app (one file → one window)
 - Open, edit, and save `.txt`, `.md`, and `.markdown` files
-- Opens most UTF-based plain-text files (`.json`, `.yaml`, `.toml`, `.xml`, `.csv`, `.log`, `.env`, and more) as plain text
+- Opens most UTF-based plain-text files (`.json`, `.yaml`, `.toml`, `.xml`, `.csv`, `.log`, `.env`, and more) as plain text, including files with no extension or an unfamiliar one, like `Dockerfile` or SSH keys (`id_ed25519`, `id_ed25519.pub`)
 - Lightweight Markdown styling that keeps syntax visible while improving readability
-- Reader mode (`⌘⇧R`) — a fully rendered, read-only view of a Markdown document, with tables, highlighted code blocks, and YAML frontmatter as a quiet header (`title:` on top, the other keys as rows); `#fragment` links jump within the document and web links open in your browser. Links and images pointing at neighboring local files work when macOS grants file access — the App Sandbox can block files that live next to the document (a blocked image shows its alt text; a blocked link does nothing). Toggle it from the title bar, just like Safari's Reader
+- Reader mode (`⌘⇧R`) — a fully rendered, read-only view of a Markdown document, with tables, highlighted code blocks, task-list checkboxes, and YAML frontmatter as a quiet header (`title:` on top, the other keys as rows); `#fragment` links jump within the document and web links open in your browser. Links and images pointing at neighboring local files work when macOS grants file access — the App Sandbox can block files that live next to the document (a blocked image shows its alt text; a blocked link does nothing). Toggle it from the title bar, just like Safari's Reader
 - Quiet syntax highlighting for config files: keys tinted in `.json`, `.yaml`, and `.toml`, everything else left alone
 - Standard editing: undo/redo, cut/copy/paste, drag-and-drop, spell check, Find & Replace
 - Word wrap (on by default) and optional line numbers
@@ -62,7 +62,7 @@ It is **not** an IDE, a project workspace, a note database, or a Markdown author
 
 For Markdown files, Tilde applies gentle semantic styling. A heading's `#` stays visible while the text renders slightly larger; `**bold**` keeps its markers while the enclosed text can render in bold. The aim is not to hide Markdown, but to make it easier to read.
 
-Styled elements: headings, bold, italic, strikethrough, inline code, code blocks, blockquotes, links, bullet lists, numbered lists, and horizontal rules. A leading YAML frontmatter block stays dim and plain, with no Markdown styling inside.
+Styled elements: headings, bold, italic, strikethrough, inline code, code blocks, blockquotes, links, bullet lists, numbered lists, task lists, and horizontal rules. A leading YAML frontmatter block stays dim and plain, with no Markdown styling inside.
 
 ## Keyboard Shortcuts
 
