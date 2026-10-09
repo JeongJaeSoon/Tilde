@@ -78,6 +78,7 @@ struct TextEditorView: NSViewRepresentable {
         // Build the TextKit 2 stack explicitly so the text view can be our
         // EditorTextView subclass (which paints code-block backgrounds).
         let contentStorage = NSTextContentStorage()
+        contentStorage.delegate = InvisibleCharacterRevealer.shared
         let layoutManager = NSTextLayoutManager()
         contentStorage.addTextLayoutManager(layoutManager)
         let container = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))

@@ -53,6 +53,11 @@ build_and_run CodeSyntaxTests \
     Tilde/Editor/CodeSyntaxStyler.swift \
     Tests/CodeSyntaxTests/main.swift || status=1
 
+build_and_run InvisibleCharacterTests \
+    Tilde/Editor/EditorTheme.swift \
+    Tilde/Editor/InvisibleCharacters.swift \
+    Tests/InvisibleCharacterTests/main.swift || status=1
+
 build_and_run LexerTests \
     Tilde/Editor/EditorTheme.swift \
     Tilde/Reader/CodeHighlighter.swift \
