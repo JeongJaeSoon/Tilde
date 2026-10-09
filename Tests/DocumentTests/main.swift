@@ -383,6 +383,95 @@ do {
            "markdown extension match is case-insensitive")
 }
 
+// MARK: - Indentation follows the file (#18)
+
+do {
+    expect(IndentStyle.detect(in: "a\n\tb\n\t\tc\n\td\n") == .tabs, "detect: tab-indented")
+    expect(IndentStyle.detect(in: "{\n  \"a\": {\n    \"b\": 1\n  }\n}\n") == .spaces(2), "detect: 2-space JSON")
+    expect(IndentStyle.detect(in: "def f():\n    if x:\n        y()\n    return\n") == .spaces(4), "detect: 4-space")
+    expect(IndentStyle.detect(in: "a\n    b\n    c\n\td\n    e\n") == .spaces(4), "detect: mixed, spaces majority")
+    expect(IndentStyle.detect(in: "a\n\tb\n\tc\n  d\n") == .tabs, "detect: mixed, tabs majority")
+    expect(IndentStyle.detect(in: "services:\n  web:\n    image: x\n    ports:\n      - 80\n  db:\n    image: y\n") == .spaces(2),
+           "detect: nested YAML maps")
+    expect(IndentStyle.detect(in: "- one\n  - two\n    - three\n- four\n") == .spaces(2), "detect: Markdown list")
+    expect(IndentStyle.detect(in: "a\n    \n\t\n\t\n  b\n  c\n") == .spaces(2), "detect: blank lines ignored")
+    expect(IndentStyle.detect(in: "/*\n * c\n */\n.a {\n  color: red;\n}\n") == .spaces(2),
+           "detect: block comment in 2-space CSS")
+    expect(IndentStyle.detect(in: String(repeating: "/**\n * Doc\n */\nfunction f() {\n    return 1;\n}\n", count: 3)) == .spaces(4),
+           "detect: JSDoc in 4-space JS")
+    expect(IndentStyle.detect(in: "a\n b\n  c\n b\n") == .spaces(1), "detect: 1-space file still detected")
+    expect(IndentStyle.detect(in: "root:\n child:\n  leaf: 1\nother:\n child: 2\n") == .spaces(1),
+           "detect: 1-space file with a two-level outdent")
+    expect(IndentStyle.detect(in: "/**\n * a\n * b\n */\nint f() {\n\treturn 1;\n}\n") == .tabs,
+           "detect: top-level block comment in a tab-indented file")
+    expect(IndentStyle.detect(in: "* one\n  * two\n    * three\n* four\n") == .spaces(2), "detect: Markdown `*` list")
+    expect(IndentStyle.detect(in: "a\n * b\n * c\n") == .spaces(1), "detect: 1-space `*` list outside a comment")
+    expect(IndentStyle.detect(in: "/* a */\n * b\n * c\n") == .spaces(1), "detect: comment closed on its own line")
+    expect(IndentStyle.detect(in: "a\nb\n\nc") == nil, "detect: no indented lines is nil")
+    expect(IndentStyle.detect(in: "") == nil, "detect: empty is nil")
+    expect(IndentStyle.detect(in: "x\n" + String(repeating: "a\n", count: 1_000) + "  b\n") == nil,
+           "detect: samples only the first 1,000 non-blank lines")
+}
+
+do {
+    let yaml = { (d: IndentStyle?) in IndentStyle.effective(detected: d, fileExtension: "yml") }
+    expect(yaml(nil) == .spaces(2), "effective: YAML without evidence uses 2 spaces")
+    expect(yaml(.tabs) == .spaces(2), "effective: tab-indented YAML still uses spaces")
+    expect(yaml(.spaces(4)) == .spaces(4), "effective: YAML keeps its detected unit")
+    expect(IndentStyle.effective(detected: .spaces(4), fileExtension: "YAML") == .spaces(4), "effective: YAML extension is case-insensitive")
+    expect(IndentStyle.effective(detected: nil, fileExtension: "md") == .tabs, "effective: no evidence keeps the tab")
+    expect(IndentStyle.effective(detected: nil, fileExtension: nil) == .tabs, "effective: untitled keeps the tab")
+    expect(IndentStyle.effective(detected: .spaces(2), fileExtension: "json") == .spaces(2), "effective: other files follow detection")
+}
+
+func applied(_ text: String, _ edit: IndentStyle.Edit?) -> String {
+    guard let edit else { return text }
+    return (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+}
+
+do {
+    let two = IndentStyle.spaces(2), four = IndentStyle.spaces(4)
+    let caret = { (at: Int) in NSRange(location: at, length: 0) }
+
+    // Single line: tab stop math.
+    var e = four.indent(in: "ab", selection: caret(0))
+    expect(applied("ab", e) == "    ab" && e.selection == caret(4), "indent: caret at line start inserts a full unit")
+    e = four.indent(in: "x\nab", selection: caret(3))
+    expect(applied("x\nab", e) == "x\na   b" && e.selection == caret(6), "indent: spaces up to the next stop")
+    e = two.indent(in: "abc", selection: caret(3))
+    expect(applied("abc", e) == "abc " && e.selection == caret(4), "indent: odd column reaches the next 2-stop")
+    e = four.indent(in: "\tab", selection: caret(2))
+    expect(applied("\tab", e) == "\ta   b", "indent: a tab before the caret counts as a stop")
+    e = IndentStyle.tabs.indent(in: "ab", selection: caret(1))
+    expect(applied("ab", e) == "a\tb" && e.selection == caret(2), "indent: tabs insert a tab character")
+    e = two.indent(in: "abcd", selection: NSRange(location: 1, length: 2))
+    expect(applied("abcd", e) == "a d" && e.selection == caret(2), "indent: a selection within one line is replaced")
+
+    // Multiple lines: every touched line, empty lines skipped, selection grows.
+    let text = "a\n\nbc\nd"
+    e = two.indent(in: text as NSString, selection: NSRange(location: 0, length: 4))
+    expect(applied(text, e) == "  a\n\n  bc\nd", "indent: block indents touched lines, skips empty ones")
+    expect(e.selection == NSRange(location: 0, length: 8), "indent: block selection covers the same text")
+    e = IndentStyle.tabs.indent(in: text as NSString, selection: NSRange(location: 1, length: 5))
+    expect(applied(text, e) == "\ta\n\n\tbc\nd", "indent: selection ending at a line start leaves that line")
+    expect(e.selection == NSRange(location: 2, length: 6), "indent: block selection starting mid-line shifts with it")
+
+    // Outdent.
+    var o = four.outdent(in: "    ab", selection: caret(6))
+    expect(applied("    ab", o) == "ab" && o?.selection == caret(2), "outdent: removes one unit")
+    o = four.outdent(in: "  ab", selection: caret(1))
+    expect(applied("  ab", o) == "ab" && o?.selection == caret(0), "outdent: fewer than a unit of spaces")
+    o = two.outdent(in: "\t\tab", selection: caret(4))
+    expect(applied("\t\tab", o) == "\tab" && o?.selection == caret(3), "outdent: removes one tab")
+    o = IndentStyle.tabs.outdent(in: "      ab", selection: caret(0))
+    expect(applied("      ab", o) == "  ab" && o?.selection == caret(0), "outdent: tabs style removes up to 4 spaces")
+    expect(two.outdent(in: "ab\n  c", selection: caret(1)) == nil, "outdent: line without indentation is left alone")
+    let block = "    a\nb\n  c\n"
+    o = four.outdent(in: block as NSString, selection: NSRange(location: 4, length: 9))
+    expect(applied(block, o) == "a\nb\nc\n", "outdent: block outdents every touched line")
+    expect(o?.selection == NSRange(location: 0, length: 7), "outdent: block selection covers the same text")
+}
+
 // MARK: - Files macOS doesn't type as text (#29)
 
 // Extension-less names and dotfiles are typed public.data, unknown

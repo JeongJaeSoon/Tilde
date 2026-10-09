@@ -44,6 +44,7 @@ struct TextEditorView: NSViewRepresentable {
         var showLineNumbers: Bool
         var stylerActive: Bool
         var codeLanguage: CodeSyntaxStyler.Language?
+        var indentStyle: IndentStyle
     }
 
     /// JSON/YAML highlighting is chosen by extension, and never for a
@@ -65,7 +66,11 @@ struct TextEditorView: NSViewRepresentable {
             wordWrap: wordWrap,
             showLineNumbers: showLineNumbers,
             stylerActive: isMarkdown && markdownStyling,
-            codeLanguage: codeLanguage
+            codeLanguage: codeLanguage,
+            indentStyle: IndentStyle.effective(
+                detected: document.indentStyle,
+                fileExtension: fileURL?.pathExtension
+            )
         )
     }
 
@@ -289,6 +294,7 @@ struct TextEditorView: NSViewRepresentable {
                 let font = EditorTheme.bodyFont(monospaced: monospaced, size: settings.fontSize)
                 editorView.caretHeight = EditorTheme.caretHeight(monospaced: monospaced, size: settings.fontSize)
                 editorView.bodyLineSpacing = EditorTheme.lineSpacing(for: font)
+                editorView.indentStyle = settings.indentStyle
             }
 
             configureWordWrap(settings.wordWrap, textView: textView, scrollView: scrollView)

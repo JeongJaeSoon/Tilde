@@ -55,6 +55,11 @@ nonisolated final class TextDocument: ReferenceFileDocument {
     /// for uniform files, which restore `lineEnding` everywhere.
     let mixedLineEndings: MixedLineEndings?
 
+    /// The file's indentation, read from its leading whitespace; `nil`
+    /// when no line is indented. The editor combines it with the live
+    /// extension (`IndentStyle.effective`) to decide what Tab inserts.
+    let indentStyle: IndentStyle?
+
     /// True when the file's bytes could not be decoded exactly (invalid
     /// UTF-8, BOM-less UTF-16 CJK, legacy encodings): the in-memory text
     /// contains substitution characters, so writing it back would corrupt
@@ -138,6 +143,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         encoding = .default
         lineEnding = .lf
         mixedLineEndings = nil
+        indentStyle = nil
         isLossy = false
         isMarkdown = false
     }
@@ -152,6 +158,7 @@ nonisolated final class TextDocument: ReferenceFileDocument {
         encoding = decoded.encoding
         lineEnding = normalized.lineEnding
         mixedLineEndings = normalized.mixed
+        indentStyle = IndentStyle.detect(in: normalized.text)
         isLossy = decoded.isLossy
         isMarkdown = configuration.contentType.conforms(to: .markdown)
     }
