@@ -654,6 +654,19 @@ do {
 }
 
 do {
+    // An italic span may close inside a word, as before a Korean particle.
+    for (text, inner, expected) in [("**so *un*believable**\n", "so *un*believable", "so *un*believable\n"),
+                                    ("**이 *문장*은 굵게**\n", "이 *문장*은 굵게", "이 *문장*은 굵게\n"),
+                                    ("**un*believ*able**\n", "un*believ*able", "un*believ*able\n"),
+                                    ("**a*b**\n", "a*b", "a*b\n"),
+                                    ("**a *b c*d e* f**\n", "a *b c*d e* f", "a *b c*d e* f\n"),
+                                    ("**x *a 한*글 b* y**\n", "x *a 한*글 b* y", "x *a 한*글 b* y\n")] {
+        let r = applying(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, inner)), to: text)
+        expect(r?.text == expected && selected(r) == inner, "⌘B on \(inner.debugDescription) removes the bold")
+    }
+}
+
+do {
     let text = "see docs now"
     let full = applying(MarkdownEditing.link(in: text as NSString, selection: sel(text, "docs"), url: "https://example.com"), to: text)
     expect(full?.text == "see [docs](https://example.com) now", "⌘K with a URL builds [text](url)")
