@@ -261,7 +261,7 @@ Styling is **attributes only** — the character content of the buffer is never 
 | Inline code | SF Mono, subtle background | `` ` `` dim |
 | Code block | SF Mono, subtle background | ``` ``` ``` dim |
 | Blockquote | `.secondaryLabelColor` | `>` dim |
-| Link | link color | brackets/URL dim |
+| Link | link color; ⌘-click opens it with Reader's rules (`#fragment` scrolls to the heading), pointing hand while ⌘ is held over it | brackets/URL dim |
 | List bullet / number | body | marker slightly emphasized |
 | Task list item (`- [ ]` / `- [x]`, text after the box) | body; done items `.secondaryLabelColor` | `[ ]` `[x]` dim |
 | Horizontal rule | — | `---` dim |

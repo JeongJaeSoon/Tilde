@@ -139,6 +139,144 @@ do {
     expect(color(s, at: urlAt) == EditorTheme.markerColor, "link url dimmed")
 }
 
+// MARK: - ⌘-click link detection (#14)
+
+do {
+    let text = "see [docs](guide.md#setup) and ![pic](a.png) `[c](x)`\n"
+    let s = styled(text)
+    let ns = text as NSString
+    func target(at i: Int) -> String? { MarkdownStyler.linkTarget(at: i, in: s) }
+    let open = ns.range(of: "[docs]").location
+    let close = ns.range(of: "setup)").location + 5
+    expect(target(at: ns.range(of: "docs").location) == "guide.md#setup", "link detection: on the link text")
+    expect(target(at: open) == "guide.md#setup", "link detection: on the opening bracket")
+    expect(target(at: ns.range(of: "guide").location) == "guide.md#setup", "link detection: on the URL")
+    expect(target(at: close) == "guide.md#setup", "link detection: on the closing paren")
+    expect(target(at: open - 1) == nil, "link detection: not before the link")
+    expect(target(at: close + 1) == nil, "link detection: not after the link")
+    expect(target(at: ns.range(of: "pic").location) == nil, "link detection: images are not links")
+    expect(target(at: ns.range(of: "[c]").location + 1) == nil, "link detection: not inside a code span")
+    expect(target(at: -1) == nil && target(at: ns.length) == nil, "link detection: out-of-range index")
+}
+
+do {
+    // The link regex stops at the image (#38), so a badge must not carry the image URL.
+    let text = "[![CI](https://img.shields.io/b.svg)](https://github.com/x/actions)\n"
+    let s = styled(text)
+    let ns = text as NSString
+    expect(MarkdownStyler.linkTarget(at: ns.range(of: "CI").location, in: s) == nil, "link detection: badge alt text is not tagged with the image URL")
+    expect(MarkdownStyler.linkTarget(at: ns.range(of: "actions").location, in: s) == nil, "link detection: badge outer URL not tagged either")
+}
+
+do {
+    let fenced = styled("```\n[a](b.md)\n```\n")
+    expect(MarkdownStyler.linkTarget(at: 5, in: fenced) == nil, "link detection: not inside a fenced code block")
+    let front = styled("---\nurl: [a](b.md)\n---\nbody\n")
+    expect(MarkdownStyler.linkTarget(at: 10, in: front) == nil, "link detection: not inside frontmatter")
+
+    // Styling turned off: the buffer carries no link targets.
+    let storage = NSTextStorage(string: "see [docs](a.md)\n")
+    let styler = MarkdownStyler()
+    styler.restyleAll(storage)
+    styler.stylesMarkdown = false
+    styler.restyleAll(storage)
+    expect(MarkdownStyler.linkTarget(at: 6, in: storage) == nil, "link detection: none with Markdown styling off")
+}
+
+do {
+    func url(_ raw: String) -> String? { MarkdownLink.url(fromTarget: raw)?.absoluteString }
+    expect(url("a.md") == "a.md", "link target: plain path")
+    expect(url(" https://x.dev/p \"Title\"") == "https://x.dev/p", "link target: title dropped")
+    expect(url("<my file.md>") == "my%20file.md", "link target: angle brackets with a space")
+    expect(url("#Section%20Two") == "#Section%20Two", "link target: fragment kept")
+    expect(url("") == nil, "link target: empty")
+
+    let base = URL(fileURLWithPath: "/tmp/docs")
+    func destination(_ raw: String) -> MarkdownLink.Destination? {
+        MarkdownLink.url(fromTarget: raw).flatMap { MarkdownLink.destination(of: MarkdownLink.resolved($0, against: base)) }
+    }
+    expect(destination("#intro") == .anchor("intro"), "link destination: fragment jumps in-document")
+    expect(destination("../a.md#x") == .file(URL(fileURLWithPath: "/tmp/a.md")), "link destination: relative file, fragment stripped")
+    expect(destination("https://x.dev") == .external(URL(string: "https://x.dev")!), "link destination: scheme to the system")
+    expect(MarkdownLink.destination(of: MarkdownLink.resolved(URL(string: "a.md")!, against: nil)) == nil,
+           "link destination: relative link without a directory goes nowhere")
+}
+
+// MARK: - Fragment → heading line (#14)
+
+do {
+    let text = """
+    ---
+    title: Doc
+    ---
+    # Intro
+    ```
+    # Not a heading
+    ```
+    ## Setup ##
+    text
+    ## Setup
+    ### See [the docs](d.md)
+    #nospace
+    ## Setup 1
+
+    """
+    let ns = text as NSString
+    func line(_ fragment: String) -> Int? { MarkdownStyler.headingLocation(forFragment: fragment, in: ns) }
+    func start(of heading: String, from: Int = 0) -> Int {
+        ns.range(of: heading, range: NSRange(location: from, length: ns.length - from)).location
+    }
+    let firstSetup = start(of: "## Setup ##")
+    expect(line("intro") == start(of: "# Intro"), "fragment: matches a heading")
+    expect(line("Intro") == start(of: "# Intro"), "fragment: slugified before matching")
+    expect(line("setup") == firstSetup, "fragment: first duplicate, closing hashes dropped")
+    expect(line("setup-1") == start(of: "## Setup\n", from: firstSetup + 1), "fragment: second duplicate gets -1")
+    expect(line("setup-1-1") == start(of: "## Setup 1"), "fragment: a natural \"setup-1\" shifts to -1-1")
+    expect(line("see-the-docs") == start(of: "### See"), "fragment: link syntax dissolves to its text")
+    expect(line("not-a-heading") == nil, "fragment: headings in fenced code are skipped")
+    expect(line("nospace") == nil, "fragment: # without a space is not a heading")
+    expect(line("doc") == nil, "fragment: frontmatter is not a heading")
+    expect(line("missing") == nil, "fragment: no match")
+    expect(MarkdownStyler.headingLocation(forFragment: "Two%20Words", in: "# Two Words\n") == 0, "fragment: percent-decoded")
+    // Heading text resolves as Reader parses it, not as raw source.
+    let parsed = "# Fish &amp; Chips\n## __Bold__ name\n" as NSString
+    expect(MarkdownStyler.headingLocation(forFragment: "fish--chips", in: parsed) == 0, "fragment: entities decoded as in Reader")
+    expect(MarkdownStyler.headingLocation(forFragment: "bold-name", in: parsed) == parsed.range(of: "## __Bold__").location,
+           "fragment: emphasis markers dropped as in Reader")
+}
+
+do {
+    let text = """
+    ## Install
+
+    - Build it:
+      ```sh
+      # Install
+      ```
+
+    ~~~sh
+    # Usage
+    ```
+    # Still code
+    ~~~
+
+    ````
+    ```
+    # Inside four
+    ````
+
+    ``` `span` ```
+    ## Usage
+
+    """
+    let ns = text as NSString
+    func line(_ fragment: String) -> Int? { MarkdownStyler.headingLocation(forFragment: fragment, in: ns) }
+    expect(line("install-1") == nil, "fragment: # comment in an indented fence is skipped")
+    expect(line("usage") == ns.range(of: "## Usage").location, "fragment: # comment in a ~~~ fence is skipped")
+    expect(line("still-code") == nil, "fragment: a ``` line does not close a ~~~ fence")
+    expect(line("inside-four") == nil, "fragment: a shorter fence does not close a longer one")
+}
+
 // MARK: - Blockquote, list, HR
 
 do {
