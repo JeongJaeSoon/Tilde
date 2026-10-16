@@ -51,6 +51,8 @@ It is **not** an IDE, a project workspace, a note database, or a Markdown author
 - Reader mode (`⌘⇧R`) — a fully rendered, read-only view of a Markdown document, with tables, highlighted code blocks, task-list checkboxes, and YAML frontmatter as a quiet header (`title:` on top, the other keys as rows); `#fragment` links jump within the document and web links open in your browser. Links and images pointing at neighboring local files work when macOS grants file access — the App Sandbox can block files that live next to the document (a blocked image shows its alt text; a blocked link does nothing). Toggle it from the title bar, just like Safari's Reader
 - Quiet syntax highlighting for config files: keys tinted in `.json`, `.yaml`, and `.toml`, everything else left alone
 - Standard editing: undo/redo, cut/copy/paste, drag-and-drop, spell check, Find & Replace
+- Tab follows the file's indentation: spaces at the file's own width, or a tab (YAML always gets spaces); with lines selected, `Tab` and `⇧Tab` indent and outdent them
+- Invisible characters get a faint mark: zero-width spaces, bidirectional controls, no-break and full-width spaces, and control codes (shown as `␀`, `␛`)
 - Word wrap (on by default) and optional line numbers
 - Light / Dark / System appearance using macOS semantic colors
 - Interface in English, Korean, Japanese, and Simplified Chinese, following your macOS language
@@ -63,6 +65,8 @@ It is **not** an IDE, a project workspace, a note database, or a Markdown author
 For Markdown files, Tilde applies gentle semantic styling. A heading's `#` stays visible while the text renders slightly larger; `**bold**` keeps its markers while the enclosed text can render in bold. The aim is not to hide Markdown, but to make it easier to read.
 
 Styled elements: headings, bold, italic, strikethrough, inline code, code blocks, blockquotes, links, bullet lists, numbered lists, task lists, and horizontal rules. A leading YAML frontmatter block stays dim and plain, with no Markdown styling inside.
+
+⌘-click a link to follow it the way Reader does: `#fragment` links scroll to the heading, links to local files open them in their own window when macOS grants access, and web links open in your browser.
 
 ## Keyboard Shortcuts
 
@@ -83,6 +87,8 @@ Tilde follows macOS conventions.
 | Bold (Markdown) | `⌘B` |
 | Italic (Markdown) | `⌘I` |
 | Add Link (Markdown) | `⌘K` |
+| Indent / Outdent | `Tab` / `⇧Tab` |
+| Follow link (Markdown) | `⌘`-click |
 | Preferences | `⌘,` |
 | Increase Font | `⌘+` |
 | Decrease Font | `⌘-` |

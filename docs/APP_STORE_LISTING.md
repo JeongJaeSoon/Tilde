@@ -1,4 +1,4 @@
-# App Store Connect 등록 문안 (Tilde v1.2.1)
+# App Store Connect 등록 문안 (Tilde v1.3.0)
 
 각 항목의 글자 수 제한은 App Store Connect 기준이며, `scripts/check_listing.py`로 검증할 수 있다.
 
@@ -19,7 +19,7 @@
 | --- | --- |
 | Bundle ID | `co.euca.Tilde` |
 | SKU | `tilde-macos` |
-| Version | `1.2.1` |
+| Version | `1.3.0` |
 | Primary Language | English (U.S.) |
 | Primary Category | Productivity |
 | Secondary Category | Developer Tools |
@@ -117,11 +117,14 @@ MARKDOWN, DONE LIGHTLY
 • The Markdown syntax stays visible — Tilde makes it easier to read, not hidden
 • Reader mode (⌘⇧R): a fully rendered, read-only view with tables, highlighted code blocks and task-list checkboxes; toggle it from the title bar like Safari's Reader
 • YAML frontmatter stays quiet in the editor and becomes a tidy header in Reader: the title on top, the other fields as rows
+• ⌘-click a link in the editor to follow it: jump to a heading, open a local file, or open a web page
 
 PLAIN TEXT AND CONFIG FILES
 • Opens .txt, .md, .markdown and most UTF-based text files: .json, .yaml, .toml, .xml, .csv, .log, .env and more — even files with no extension, like Dockerfile or SSH keys
 • Quiet syntax highlighting for .json, .yaml and .toml — keys tinted, everything else left alone
 • Files in unsupported encodings open read-only so the original bytes are never damaged
+• Tab follows each file's indentation: spaces or tabs, at the file's own width
+• Invisible characters such as zero-width spaces, bidirectional controls and no-break spaces get a faint mark
 
 A REAL MAC APP
 • Document-based: one file, one window, with window tabs
@@ -145,8 +148,9 @@ Just open the file.
 
 **What's New in This Version**
 ```
-• Reader shows task lists as checkboxes: items that start with [ ] or [x] get an empty or checked box in place of the bullet, and checked items are dimmed. In the editor, [ ] and [x] dim like list markers
-• Text files with no extension or an unfamiliar one, like Dockerfile, .gitignore, or SSH keys such as id_ed25519, now open as plain text from Open With and File ▸ Open. A binary file picked this way is refused with a short alert
+• Tab follows each file's indentation: spaces at the file's own width in a space-indented file, a tab otherwise, and always spaces in YAML. With several lines selected, Tab indents them and ⇧Tab outdents them
+• Invisible characters get a faint mark in the editor: zero-width spaces, byte-order marks, bidirectional controls, and no-break and full-width spaces. Control codes such as NUL and ESC show as ␀ and ␛. Saving, copying and Find still see the original characters
+• ⌘-click a Markdown link in the editor to follow it the way Reader does: a #heading link scrolls to the heading, a link to a local file opens it, and a web link opens in your browser
 ```
 
 ---
@@ -187,11 +191,14 @@ README를 잠깐 확인하거나 설정 파일 한 줄을 고치거나 Markdown 
 • Markdown 문법은 그대로 보입니다. 숨기는 것이 아니라 읽기 쉽게 만듭니다
 • Reader 모드(⌘⇧R): 표, 코드 하이라이팅, 작업 목록 체크박스를 포함한 완전 렌더링 읽기 전용 화면. Safari의 읽기 도구처럼 타이틀 바에서 전환
 • YAML 프론트매터는 편집기에서 조용히 표시되고, Reader 모드에서는 맨 위의 제목과 행으로 정리된 항목으로 보여 줍니다
+• 편집기에서 링크를 ⌘-클릭하면 따라갑니다: 제목으로 이동하거나, 로컬 파일이나 웹 페이지를 엽니다
 
 일반 텍스트와 설정 파일
 • .txt, .md, .markdown은 물론 .json, .yaml, .toml, .xml, .csv, .log, .env 등 대부분의 UTF 기반 텍스트 파일 지원. Dockerfile이나 SSH 키처럼 확장자가 없는 파일도 열림
 • .json, .yaml, .toml은 키만 살짝 색을 입히는 조용한 하이라이팅
 • 지원하지 않는 인코딩의 파일은 읽기 전용으로 열어 원본을 절대 손상시키지 않습니다
+• Tab은 파일의 들여쓰기를 따릅니다: 파일이 쓰는 너비의 공백 또는 탭
+• 폭 없는 공백, 양방향 제어 문자, 줄바꿈 없는 공백 같은 보이지 않는 문자를 옅게 표시
 
 진짜 Mac 앱
 • 문서 기반: 파일 하나에 창 하나, 윈도우 탭 지원
@@ -215,8 +222,9 @@ Tilde는 MIT 라이선스의 오픈 소스입니다.
 
 **What's New in This Version**
 ```
-• Reader 모드가 작업 목록을 체크박스로 보여 줍니다. [ ] 또는 [x]로 시작하는 항목은 글머리 기호 대신 빈 상자나 체크된 상자로 표시되고, 완료한 항목은 흐리게 표시됩니다. 편집기에서는 [ ]와 [x]가 목록 기호처럼 흐리게 표시됩니다
-• Dockerfile, .gitignore, id_ed25519 같은 SSH 키처럼 확장자가 없거나 낯선 텍스트 파일도 '다음으로 열기'와 파일 ▸ 열기에서 평문으로 열 수 있습니다. 이렇게 고른 파일이 바이너리면 짧은 알림을 보여 주고 열지 않습니다
+• Tab이 파일의 들여쓰기를 따릅니다. 공백으로 들여쓴 파일에서는 파일이 쓰는 너비만큼 공백을, 그 밖에는 탭을 넣고, YAML에서는 항상 공백을 넣습니다. 여러 줄을 선택하면 Tab으로 들여쓰고 ⇧Tab으로 내어씁니다
+• 편집기에서 보이지 않는 문자를 옅게 표시합니다. 폭 없는 공백, BOM, 양방향 제어 문자, 줄바꿈 없는 공백과 전각 공백이 대상이고, NUL이나 ESC 같은 제어 문자는 ␀, ␛로 보입니다. 저장, 복사, 찾기에는 원래 문자가 그대로 쓰입니다
+• 편집기에서 Markdown 링크를 ⌘-클릭하면 Reader처럼 따라갑니다. #제목 링크는 그 제목으로 스크롤하고, 로컬 파일 링크는 그 파일을 열고, 웹 링크는 브라우저로 엽니다
 ```
 
 ---
@@ -257,11 +265,14 @@ READMEをちょっと確認する、設定ファイルを一行直す、Markdown
 • Markdown記法はそのまま見えます。隠すのではなく読みやすくします
 • リーダーモード(⌘⇧R): 表やコードハイライト、タスクリストのチェックボックスを含む完全レンダリングの読み取り専用表示。Safariのリーダーのようにタイトルバーから切り替え
 • YAMLフロントマターはエディタでは控えめに表示し、リーダーモードではタイトルを先頭に、ほかの項目を行に並べたヘッダーとして表示
+• エディタでリンクを⌘-クリックしてたどれます: 見出しへ移動、ローカルファイルやWebページを開く
 
 プレーンテキストと設定ファイル
 • .txt、.md、.markdownに加え、.json、.yaml、.toml、.xml、.csv、.log、.envなどUTF系テキストファイルの多くを開けます。Dockerfileや SSH鍵など、拡張子のないファイルも開けます
 • .json、.yaml、.tomlはキーだけを淡く色付けする静かなハイライト
 • 未対応エンコーディングのファイルは読み取り専用で開き、元のバイト列を決して壊しません
+• Tabはファイルのインデントに従います: ファイルと同じ幅のスペース、またはタブ
+• ゼロ幅スペース、双方向制御文字、ノーブレークスペースなどの見えない文字を淡く表示
 
 本物のMacアプリ
 • ドキュメントベース: 1ファイル1ウインドウ、ウインドウタブ対応
@@ -285,8 +296,9 @@ TildeはMITライセンスのオープンソースです。
 
 **What's New in This Version**
 ```
-• リーダーモードでタスクリストをチェックボックスとして表示します。[ ] または [x] で始まる項目は、箇条書きの記号の代わりに空のボックスまたはチェック済みのボックスで表示され、完了した項目は淡く表示されます。エディタでは [ ] と [x] がリストの記号と同じように淡く表示されます
-• Dockerfile、.gitignore、id_ed25519などのSSH鍵のように、拡張子がない、または見慣れない拡張子のテキストファイルも「このアプリケーションで開く」や「ファイル ▸ 開く」からプレーンテキストとして開けるようになりました。この方法で選んだファイルがバイナリの場合は、短い警告を表示して開きません
+• Tabがファイルのインデントに従うようになりました。スペースでインデントされたファイルではファイルと同じ幅のスペースを、それ以外ではタブを入力し、YAMLでは常にスペースを入力します。複数行を選択すると、Tabでインデント、⇧Tabでアウトデントします
+• エディタで見えない文字を淡く表示します。ゼロ幅スペース、BOM、双方向制御文字、ノーブレークスペースや全角スペースが対象で、NULやESCなどの制御文字は␀や␛として表示されます。保存、コピー、検索では元の文字がそのまま使われます
+• エディタでMarkdownのリンクを⌘-クリックすると、リーダーモードと同じようにたどれます。#見出しリンクはその見出しまでスクロールし、ローカルファイルへのリンクはそのファイルを開き、Webリンクはブラウザで開きます
 ```
 
 ---
@@ -327,11 +339,14 @@ Tilde 是一款小巧而美观的 macOS 文本编辑器,为这样的人而生:�
 • Markdown 语法保持可见,Tilde 让它更易读,而不是把它藏起来
 • 阅读模式(⌘⇧R):完整渲染的只读视图,支持表格、代码高亮和任务列表复选框;像 Safari 阅读器一样从标题栏切换
 • YAML front matter 在编辑器中安静显示,在阅读模式中呈现为整洁的标题区:标题在上,其余字段逐行排列
+• 在编辑器中按住 ⌘ 点按链接即可跟随:跳到标题,或打开本地文件和网页
 
 纯文本与配置文件
 • 支持 .txt、.md、.markdown,以及 .json、.yaml、.toml、.xml、.csv、.log、.env 等大多数 UTF 编码文本文件,包括 Dockerfile、SSH 密钥等没有扩展名的文件
 • .json、.yaml、.toml 采用安静的语法高亮,仅为键着色,其余保持原样
 • 不支持编码的文件以只读方式打开,绝不损坏原始字节
+• Tab 跟随文件的缩进:按文件自身宽度插入空格,或插入制表符
+• 零宽空格、双向控制字符、不换行空格等不可见字符以淡色标出
 
 真正的 Mac 应用
 • 基于文稿:一个文件一个窗口,支持窗口标签页
@@ -355,6 +370,7 @@ Tilde 基于 MIT 许可证开源。
 
 **What's New in This Version**
 ```
-• 阅读模式将任务列表显示为复选框:以 [ ] 或 [x] 开头的项目会以空框或已勾选的框代替项目符号,已完成的项目以淡色显示。在编辑器中,[ ] 和 [x] 会像列表标记一样淡化显示
-• 没有扩展名或扩展名不常见的文本文件(如 Dockerfile、.gitignore,以及 id_ed25519 等 SSH 密钥)现在可以通过"打开方式"和"文件 ▸ 打开"以纯文本打开。以这种方式选择的文件如果是二进制文件,会显示简短提示并拒绝打开
+• Tab 现在跟随文件的缩进:在用空格缩进的文件中按文件自身宽度插入空格,其他情况插入制表符,YAML 文件始终插入空格。选中多行时,Tab 整体缩进,⇧Tab 整体取消缩进
+• 编辑器会以淡色标出不可见字符:零宽空格、BOM、双向控制字符、不换行空格和全角空格;NUL、ESC 等控制字符显示为 ␀ 和 ␛。保存、复制和查找仍使用原始字符
+• 在编辑器中按住 ⌘ 点按 Markdown 链接,即可像阅读模式一样跟随:#标题 链接滚动到该标题,指向本地文件的链接会打开该文件,网页链接在浏览器中打开
 ```
