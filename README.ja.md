@@ -84,9 +84,9 @@ Tilde は macOS の慣習に従います。
 | 前を検索 | `⌘⇧G` |
 | 検索と置換 | `⌥⌘F` |
 | Reader | `⌘⇧R` |
-| ボールド (Markdown) | `⌘B` |
-| イタリック (Markdown) | `⌘I` |
-| リンクを追加 (Markdown) | `⌘K` |
+| ボールド（Markdown） | `⌘B` |
+| イタリック（Markdown） | `⌘I` |
+| リンクを追加（Markdown） | `⌘K` |
 | インデント / アウトデント | `Tab` / `⇧Tab` |
 | リンクを開く（Markdown） | `⌘`-クリック |
 | 環境設定 | `⌘,` |

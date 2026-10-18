@@ -84,9 +84,9 @@ Tilde 遵循 macOS 惯例。
 | 查找上一个 | `⌘⇧G` |
 | 查找与替换 | `⌥⌘F` |
 | 阅读模式 | `⌘⇧R` |
-| 粗体 (Markdown) | `⌘B` |
-| 斜体 (Markdown) | `⌘I` |
-| 添加链接 (Markdown) | `⌘K` |
+| 粗体（Markdown） | `⌘B` |
+| 斜体（Markdown） | `⌘I` |
+| 添加链接（Markdown） | `⌘K` |
 | 缩进 / 取消缩进 | `Tab` / `⇧Tab` |
 | 打开链接（Markdown） | 按住 `⌘` 点按 |
 | 偏好设置 | `⌘,` |
