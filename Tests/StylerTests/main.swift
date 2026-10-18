@@ -795,12 +795,22 @@ do {
     // An italic span may close inside a word, as before a Korean particle.
     for (text, inner, expected) in [("**so *un*believable**\n", "so *un*believable", "so *un*believable\n"),
                                     ("**이 *문장*은 굵게**\n", "이 *문장*은 굵게", "이 *문장*은 굵게\n"),
+                                    ("**이 *문장*은 그리고 *단어*를 굵게**\n", "이 *문장*은 그리고 *단어*를 굵게", "이 *문장*은 그리고 *단어*를 굵게\n"),
                                     ("**un*believ*able**\n", "un*believ*able", "un*believ*able\n"),
-                                    ("**a*b**\n", "a*b", "a*b\n"),
-                                    ("**a *b c*d e* f**\n", "a *b c*d e* f", "a *b c*d e* f\n"),
-                                    ("**x *a 한*글 b* y**\n", "x *a 한*글 b* y", "x *a 한*글 b* y\n")] {
+                                    ("**a*b**\n", "a*b", "a*b\n")] {
         let r = applying(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, inner)), to: text)
         expect(r?.text == expected && selected(r) == inner, "⌘B on \(inner.debugDescription) removes the bold")
+    }
+    // Reader doesn't read these as one bold span, so ⌘B beeps: a later
+    // closing run after an intraword close, and an intraword run closing a
+    // different-length run or being `**` itself.
+    for (text, inner) in [("**a *b c*d e* f**\n", "a *b c*d e* f"),
+                          ("**x *a 한*글 b* y**\n", "x *a 한*글 b* y"),
+                          ("**이 **문장**은 굵게**\n", "이 **문장**은 굵게"),
+                          ("**a **b**c d**\n", "a **b**c d"),
+                          ("**a **b*c**\n", "a **b*c")] {
+        expect(MarkdownEditing.toggleEmphasis(.bold, in: text as NSString, selection: sel(text, inner)) == nil,
+               "⌘B on \(inner.debugDescription) returns nil, as Reader shows no single bold span")
     }
 }
 

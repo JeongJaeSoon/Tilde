@@ -203,9 +203,10 @@ nonisolated enum MarkdownEditing {
     /// Whether every `*` run in `range` that opens a span is closed by a
     /// later one. A run counts as opening when text follows it and a blank,
     /// punctuation, or the range start comes before; closing is the mirror.
-    /// An intraword run closes an open span (`*문장*은`) unless a later
-    /// closing run needs that span (`*b c*d e*`); otherwise it is ignored
-    /// (`a**b`), as are runs between blanks (`2 * 3`).
+    /// A single intraword `*` closes an open single `*` (`*문장*은`, as
+    /// Reader reads it); any other intraword run is ignored (`a**b`), as are
+    /// runs between blanks (`2 * 3`). Reader doesn't read `*b c*d e*` or
+    /// `**문장**은` as closed spans, so neither balances here.
     private static func innerRunsBalance(_ text: NSString, _ range: NSRange) -> Bool {
         let star = Character("*").utf16.first!
         func isBoundary(_ i: Int) -> Bool {
@@ -213,8 +214,7 @@ nonisolated enum MarkdownEditing {
             let unit = text.character(at: i)
             return isBlank(unit) || (unit < 0x80 && ispunct(Int32(unit)) != 0)
         }
-        var open = 0
-        var intrawordCloses = 0
+        var open: [Int] = []  // lengths of the runs still open
         var i = range.location
         while i < NSMaxRange(range) {
             guard text.character(at: i) == star else { i += 1; continue }
@@ -222,21 +222,15 @@ nonisolated enum MarkdownEditing {
             let before = i - 1, after = i + length
             let opens = !isBoundary(after) && isBoundary(before)
             let closes = !isBoundary(before) && isBoundary(after)
-            if opens { open += 1 } else if closes {
-                if open > 0 {
-                    open -= 1
-                } else if intrawordCloses > 0 {
-                    intrawordCloses -= 1
-                } else {
-                    return false
-                }
-            } else if !isBoundary(before), !isBoundary(after), open > 0 {
-                open -= 1
-                intrawordCloses += 1
+            if opens { open.append(length) } else if closes {
+                if open.isEmpty { return false }
+                open.removeLast()
+            } else if !isBoundary(before), !isBoundary(after), length == 1, open.last == 1 {
+                open.removeLast()
             }
             i = after
         }
-        return open == 0
+        return open.isEmpty
     }
 
     private static func isBlank(_ unit: unichar) -> Bool {
